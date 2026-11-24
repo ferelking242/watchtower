@@ -1055,6 +1055,24 @@ abstract class AppLocalizations {
   /// **'Theme'**
   String get theme;
 
+  /// No description provided for @sleep_timer.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep timer'**
+  String get sleep_timer;
+
+  /// No description provided for @sleep_timer_off.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get sleep_timer_off;
+
+  /// No description provided for @sleep_timer_minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min'**
+  String sleep_timer_minutes(int count);
+
   /// No description provided for @dark_mode.
   ///
   /// In en, this message translates to:
@@ -16478,7 +16496,7 @@ abstract class AppLocalizations {
   /// No description provided for @discover_mode_watch.
   ///
   /// In en, this message translates to:
-  /// **'Watch'**
+  /// **'All'**
   String get discover_mode_watch;
 
   /// No description provided for @discover_mode_manga.
@@ -16816,6 +16834,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get discover_retry;
+
+  /// No description provided for @discover_offline_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovery keeps the last cached catalogue. Check your connection, then retry.'**
+  String get discover_offline_hint;
 
   /// No description provided for @discover_no_results_for.
   ///

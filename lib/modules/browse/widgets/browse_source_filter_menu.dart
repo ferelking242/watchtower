@@ -33,15 +33,15 @@ extension BrowseSourceTagLabel on BrowseSourceTag {
       };
 
   IconData get icon => switch (this) {
-        BrowseSourceTag.cloudflare => Icons.cloud_outlined,
-        BrowseSourceTag.account => Icons.person_outline_rounded,
-        BrowseSourceTag.drm => Icons.lock_outline_rounded,
-        BrowseSourceTag.aggregator => Icons.hub_outlined,
-        BrowseSourceTag.comments => Icons.chat_bubble_outline_rounded,
-        BrowseSourceTag.torrent => Icons.download_outlined,
-        BrowseSourceTag.update => Icons.system_update_alt_rounded,
-        BrowseSourceTag.javascript => Icons.code_rounded,
-        BrowseSourceTag.dart => Icons.flutter_dash,
+        BrowseSourceTag.cloudflare => Broken.cloud,
+        BrowseSourceTag.account => Broken.user,
+        BrowseSourceTag.drm => Broken.lock,
+        BrowseSourceTag.aggregator => Broken.category,
+        BrowseSourceTag.comments => Broken.message,
+        BrowseSourceTag.torrent => Broken.document_download,
+        BrowseSourceTag.update => Broken.refresh_2,
+        BrowseSourceTag.javascript => Broken.code,
+        BrowseSourceTag.dart => Broken.element_4,
       };
 }
 
@@ -254,7 +254,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
       children: [
         AdaptiveOverlaySection(title: l10n.browse_filter_installed),
         AdaptiveOverlayItem(
-          icon: Icons.check_circle_outline_rounded,
+          icon: Broken.tick_circle,
           label: l10n.browse_filter_active_only,
           selected: _filters.onlyActive,
           onTap: () => _update(
@@ -262,13 +262,13 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           ),
         ),
         AdaptiveOverlayItem(
-          icon: Icons.visibility_off_outlined,
+          icon: Broken.eye_slash,
           label: l10n.browse_filter_content_nsfw,
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => setState(() => _level = _BrowseFilterLevel.nsfw),
         ),
         AdaptiveOverlayItem(
-          icon: Icons.language_rounded,
+          icon: Broken.global,
           label: _filters.language == null
               ? l10n.browse_filter_all_languages
               : l10n.browse_filter_language_prefix(
@@ -394,7 +394,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
               ? null
               : IconButton(
                   tooltip: l10n.browse_filter_clear_search,
-                  icon: const Icon(Icons.close_rounded, size: 18),
+                  icon: const Icon(Broken.close_circle, size: 18),
                   onPressed: () {
                     _searchController.clear();
                     widget.onSearchChanged?.call('');

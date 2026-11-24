@@ -269,6 +269,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
         AdaptiveOverlaySection(title: context.l10n.media_items_per_row),
         for (final columns in const [0, 1, 2, 3, 4, 5, 6])
           AdaptiveOverlayItem(
+            icon: Broken.element_3,
             label: columns == 0
                 ? context.l10n.media_automatic
                 : columns == 1
@@ -736,6 +737,7 @@ class CatalogFilterOverlay extends StatefulWidget {
     this.showSortSection = true,
     this.showLayoutSection = true,
     this.typeSectionLabel = 'Type',
+    this.onSelect,
   });
 
   final CatalogFilterState initial;
@@ -753,6 +755,10 @@ class CatalogFilterOverlay extends StatefulWidget {
   final bool showSortSection;
   final bool showLayoutSection;
   final String typeSectionLabel;
+
+  /// Enters bulk-selection mode. Mirrors the Library filter menu, whose first
+  /// entry is "Sélectionner".
+  final VoidCallback? onSelect;
 
   @override
   State<CatalogFilterOverlay> createState() => _CatalogFilterOverlayState();
@@ -850,52 +856,81 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         ? '${d.minYear}'
         : '${d.minYear ?? '…'} — ${d.maxYear ?? '…'}';
 
-    Widget row(String label, String value, _CatalogLevel level) =>
-        AdaptiveOverlayItem(
-          label: label,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Icon(Broken.arrow_right_3, size: 14),
-            ],
+    Widget row(
+      String label,
+      String value,
+      _CatalogLevel level,
+      IconData icon,
+    ) => AdaptiveOverlayItem(
+      icon: icon,
+      label: label,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          onTap: () => setState(() => _level = level),
-        );
+          const Icon(Broken.arrow_right_3, size: 14),
+        ],
+      ),
+      onTap: () => setState(() => _level = level),
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AdaptiveOverlaySection(title: context.l10n.media_filters_title),
+        if (widget.onSelect != null) ...[
+          AdaptiveOverlayItem(
+            icon: Broken.tick_square,
+            label: context.l10n.common_select,
+            onTap: () {
+              widget.close();
+              widget.onSelect!();
+            },
+          ),
+          const AdaptiveOverlayDivider(),
+        ],
         if (widget.showLayoutSection) ...[
           row(
             context.l10n.display,
             _layoutLabel(context, d.layout),
             _CatalogLevel.layout,
+            Broken.category,
           ),
           row(
             context.l10n.media_columns_count,
             d.columns == 0 ? context.l10n.automaic : '${d.columns}',
             _CatalogLevel.columns,
+            Broken.element_3,
           ),
         ],
         if (widget.showTypeSection && widget.typeOptions.isNotEmpty)
-          row(widget.typeSectionLabel, typeLabel ?? d.type, _CatalogLevel.type),
+          row(
+            widget.typeSectionLabel,
+            typeLabel ?? d.type,
+            _CatalogLevel.type,
+            Broken.video,
+          ),
         if (widget.showYearsSection)
-          row(context.l10n.media_years, yearsLabel, _CatalogLevel.years),
+          row(
+            context.l10n.media_years,
+            yearsLabel,
+            _CatalogLevel.years,
+            Broken.calendar,
+          ),
         if (widget.showGenreSection && widget.genreOptions.isNotEmpty)
           row(
             context.l10n.media_genres,
             d.genres.isEmpty ? context.l10n.media_all : '${d.genres.length}',
             _CatalogLevel.genres,
+            Broken.category_2,
           ),
         if (widget.showRatingSection)
           row(
@@ -904,12 +939,14 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
                 ? '${d.minRating.toInt()}+'
                 : context.l10n.media_all,
             _CatalogLevel.rating,
+            Broken.star,
           ),
         if (widget.showSortSection)
           row(
             context.l10n.media_sort,
             sortLabel ?? d.sortMode,
             _CatalogLevel.sort,
+            Broken.sort,
           ),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
@@ -941,6 +978,12 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         _backHeader(context.l10n.display),
         for (final layout in CatalogLayout.values)
           AdaptiveOverlayItem(
+            icon: switch (layout) {
+              CatalogLayout.list => Broken.row_vertical,
+              CatalogLayout.compact => Broken.grid_2,
+              CatalogLayout.coverOnly => Broken.image,
+              _ => Broken.category,
+            },
             label: _layoutLabel(context, layout),
             selected: _draft.layout == layout,
             onTap: () {
@@ -960,6 +1003,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         _backHeader(context.l10n.media_columns_count),
         for (final columns in const [0, 1, 2, 3, 4, 5, 6])
           AdaptiveOverlayItem(
+            icon: Broken.element_3,
             label: columns == 0
                 ? context.l10n.media_automatic
                 : columns == 1
@@ -983,6 +1027,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         _backHeader(widget.typeSectionLabel),
         for (final option in widget.typeOptions)
           AdaptiveOverlayItem(
+            icon: Broken.video,
             label: option.label,
             selected: _draft.type == option.value,
             onTap: () {
@@ -1004,6 +1049,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       children: [
         _backHeader(context.l10n.media_years),
         AdaptiveOverlayItem(
+          icon: Broken.calendar,
           label: context.l10n.media_all_years,
           selected: _draft.minYear == null && _draft.maxYear == null,
           onTap: () => _update(() {
@@ -1018,6 +1064,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
           (context.l10n.media_classic, 0, 1999),
         ])
           AdaptiveOverlayItem(
+            icon: Broken.calendar,
             label: label,
             selected: label == context.l10n.media_classic
                 ? (_draft.minYear == null && _draft.maxYear == 1999)
@@ -1038,6 +1085,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         AdaptiveOverlaySection(title: context.l10n.media_all_years),
         for (var year = now; year >= 2000; year--)
           AdaptiveOverlayItem(
+            icon: Broken.calendar,
             label: '$year',
             selected: _draft.minYear == year && _draft.maxYear == year,
             onTap: () => _update(() {
@@ -1058,6 +1106,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         _backHeader(context.l10n.media_genres),
         for (final genre in widget.genreOptions)
           AdaptiveOverlayItem(
+            icon: Broken.category_2,
             label: genre,
             selected: _draft.genres.contains(genre),
             onTap: () => _update(() {
@@ -1090,6 +1139,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
           (9.0, '9+'),
         ])
           AdaptiveOverlayItem(
+            icon: Broken.star,
             label: label,
             selected: _draft.minRating == rating,
             onTap: () {
@@ -1109,6 +1159,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         _backHeader(context.l10n.media_sort),
         for (final option in widget.sortOptions)
           AdaptiveOverlayItem(
+            icon: Broken.sort,
             label: option.label,
             selected: _draft.sortMode == option.value,
             onTap: () {

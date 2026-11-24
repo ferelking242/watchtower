@@ -6,6 +6,8 @@ import 'dart:async';
   import 'package:flutter_riverpod/flutter_riverpod.dart';
   import 'package:http/http.dart' as http;
 
+  import 'package:watchtower/modules/home/services/anilist_home_cache.dart';
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Studio model
   // ─────────────────────────────────────────────────────────────────────────────
@@ -22,6 +24,12 @@ import 'dart:async';
           name: (json['name'] as String?)?.trim() ?? '',
           favourites: (json['favourites'] as num?)?.toInt(),
         );
+
+    Map<String, dynamic> toJson() => {
+      'id': id,
+      'name': name,
+      'favourites': favourites,
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -202,6 +210,53 @@ import 'dart:async';
             : DateTime.fromMillisecondsSinceEpoch(airingAt * 1000),
       );
     }
+
+    /// Round-trips through the same shape as [AnilistMedia.fromJson] so the
+    /// home payload can be persisted for offline cold starts.
+    Map<String, dynamic> toJson() => {
+      'id': id,
+      'type': type,
+      'format': format,
+      'countryOfOrigin': countryOfOrigin,
+      'title': {
+        'romaji': titleRomaji,
+        'english': titleEnglish,
+        'native': titleNative,
+      },
+      'synonyms': synonyms,
+      'coverImage': {
+        'large': coverLarge,
+        'extraLarge': coverExtraLarge,
+      },
+      'bannerImage': bannerImage,
+      'description': description,
+      'averageScore': averageScore,
+      'episodes': episodes,
+      'chapters': chapters,
+      'genres': genres,
+      'status': status,
+      'season': season,
+      'seasonYear': seasonYear,
+      'duration': duration,
+      'popularity': popularity,
+      'favourites': favourites,
+      'source': source,
+      'studios': {
+        'nodes': studios.map((studio) => studio.toJson()).toList(),
+      },
+      'relations': {
+        'nodes': relations.map((relation) => relation.toNodeJson()).toList(),
+        'edges': relations
+            .map((relation) => {'relationType': relation.relationType})
+            .toList(),
+      },
+      'nextAiringEpisode': nextAiringAt == null
+          ? null
+          : {
+              'episode': nextEpisodeNumber,
+              'airingAt': nextAiringAt!.millisecondsSinceEpoch ~/ 1000,
+            },
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -465,6 +520,14 @@ import 'dart:async';
         relationType: relationType,
       );
     }
+
+    Map<String, dynamic> toNodeJson() => {
+      'id': id,
+      'type': type,
+      'format': format,
+      'title': {'english': title},
+      'coverImage': {'large': coverImage},
+    };
   }
 
   class AnilistRelationGroup {
@@ -758,6 +821,80 @@ import 'dart:async';
       ...recentlyUpdatedAnimes,
       ...latestAnimes,
     ];
+
+    bool get isEmpty => allAnimes.isEmpty && allMangas.isEmpty && allNovels.isEmpty;
+
+    List<AnilistMedia> get allMangas => [
+      ...trendingMangas,
+      ...popularMangas,
+      ...latestMangas,
+      ...trendingManhwa,
+      ...trendingManhua,
+    ];
+
+    List<AnilistMedia> get allNovels => [...trendingNovels, ...popularNovels, ...latestNovels];
+
+    Map<String, dynamic> toJson() => {
+      'trendingAnimes': _listJson(trendingAnimes),
+      'popularAnimes': _listJson(popularAnimes),
+      'upcomingAnimes': _listJson(upcomingAnimes),
+      'latestAnimes': _listJson(latestAnimes),
+      'recentlyUpdatedAnimes': _listJson(recentlyUpdatedAnimes),
+      'topRatedAnimes': _listJson(topRatedAnimes),
+      'animeMovies': _listJson(animeMovies),
+      'trendingMangas': _listJson(trendingMangas),
+      'popularMangas': _listJson(popularMangas),
+      'latestMangas': _listJson(latestMangas),
+      'trendingManhwa': _listJson(trendingManhwa),
+      'trendingManhua': _listJson(trendingManhua),
+      'trendingNovels': _listJson(trendingNovels),
+      'popularNovels': _listJson(popularNovels),
+      'latestNovels': _listJson(latestNovels),
+      'topMovies': _listJson(topMovies),
+      'airingAnimes': _listJson(airingAnimes),
+      'favouriteAnimes': _listJson(favouriteAnimes),
+      'longRunningAnimes': _listJson(longRunningAnimes),
+      'topStudios': topStudios.map((studio) => studio.toJson()).toList(),
+    };
+
+    static List<Map<String, dynamic>> _listJson(List<AnilistMedia> items) =>
+        items.map((item) => item.toJson()).toList(growable: false);
+
+    static List<AnilistMedia> _listFrom(dynamic raw) {
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((item) => AnilistMedia.fromJson(item.cast<String, dynamic>()))
+          .toList(growable: false);
+    }
+
+    factory AnilistHome.fromJson(Map<String, dynamic> json) => AnilistHome(
+      trendingAnimes: _listFrom(json['trendingAnimes']),
+      popularAnimes: _listFrom(json['popularAnimes']),
+      upcomingAnimes: _listFrom(json['upcomingAnimes']),
+      latestAnimes: _listFrom(json['latestAnimes']),
+      recentlyUpdatedAnimes: _listFrom(json['recentlyUpdatedAnimes']),
+      topRatedAnimes: _listFrom(json['topRatedAnimes']),
+      animeMovies: _listFrom(json['animeMovies']),
+      trendingMangas: _listFrom(json['trendingMangas']),
+      popularMangas: _listFrom(json['popularMangas']),
+      latestMangas: _listFrom(json['latestMangas']),
+      trendingManhwa: _listFrom(json['trendingManhwa']),
+      trendingManhua: _listFrom(json['trendingManhua']),
+      trendingNovels: _listFrom(json['trendingNovels']),
+      popularNovels: _listFrom(json['popularNovels']),
+      latestNovels: _listFrom(json['latestNovels']),
+      topMovies: _listFrom(json['topMovies']),
+      airingAnimes: _listFrom(json['airingAnimes']),
+      favouriteAnimes: _listFrom(json['favouriteAnimes']),
+      longRunningAnimes: _listFrom(json['longRunningAnimes']),
+      topStudios: json['topStudios'] is List
+          ? (json['topStudios'] as List)
+                .whereType<Map>()
+                .map((item) => AnilistStudio.fromJson(item.cast<String, dynamic>()))
+                .toList(growable: false)
+          : const [],
+    );
   }
 
   const _anilistEndpoint = 'https://graphql.anilist.co';
@@ -954,15 +1091,13 @@ import 'dart:async';
   Future<AnilistHome> _fetchAnilistHome() async {
     try {
       final conn = await Connectivity().checkConnectivity();
-      final list = conn;
-      if (list.isEmpty || list.every((c) => c == ConnectivityResult.none)) {
+      if (conn.isEmpty || conn.every((c) => c == ConnectivityResult.none)) {
         throw const SocketException('No network connection');
       }
     } catch (_) {}
 
-    late final http.Response response;
     try {
-      response = await http
+      final response = await http
           .post(
             Uri.parse(_anilistEndpoint),
             headers: const {
@@ -975,39 +1110,44 @@ import 'dart:async';
             }),
           )
           .timeout(const Duration(seconds: 30));
-    } catch (e) {
-      throw Exception('Network error: $e');
+
+      if (response.statusCode != 200) {
+        throw Exception('AniList returned ${response.statusCode}');
+      }
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>? ?? const {};
+      final home = AnilistHome(
+        trendingAnimes: _parseList(data['trendingAnimes']),
+        popularAnimes: _parseList(data['popularAnimes']),
+        upcomingAnimes: _parseList(data['upcomingAnimes']),
+        latestAnimes: _parseList(data['latestAnimes']),
+        recentlyUpdatedAnimes: _parseList(data['recentlyUpdatedAnimes']),
+        topRatedAnimes: _parseList(data['topRatedAnimes']),
+        animeMovies: _parseList(data['animeMovies']),
+        trendingMangas: _parseList(data['trendingMangas']),
+        popularMangas: _parseList(data['popularMangas']),
+        latestMangas: _parseList(data['latestMangas']),
+        trendingManhwa: _parseList(data['trendingManhwa']),
+        trendingManhua: _parseList(data['trendingManhua']),
+        trendingNovels: _parseList(data['trendingNovels']),
+        popularNovels: _parseList(data['popularNovels']),
+        latestNovels: _parseList(data['latestNovels']),
+        topMovies: _parseList(data['topMovies']),
+        airingAnimes: _parseList(data['airingAnimes']),
+        favouriteAnimes: _parseList(data['favouriteAnimes']),
+        longRunningAnimes: _parseList(data['longRunningAnimes']),
+        topStudios: _parseStudios(data['topStudios']),
+      );
+      unawaited(AnilistHomeCache.instance.write(home));
+      return home;
+    } catch (error) {
+      // Keep discovery usable offline: the last good payload beats an error
+      // wall, and the hub's images already come from their own disk cache.
+      final cached = await AnilistHomeCache.instance.read();
+      if (cached != null) return cached;
+      rethrow;
     }
-
-    if (response.statusCode != 200) {
-      throw Exception('AniList returned ${response.statusCode}');
-    }
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final data = body['data'] as Map<String, dynamic>? ?? const {};
-
-    return AnilistHome(
-      trendingAnimes: _parseList(data['trendingAnimes']),
-      popularAnimes: _parseList(data['popularAnimes']),
-      upcomingAnimes: _parseList(data['upcomingAnimes']),
-      latestAnimes: _parseList(data['latestAnimes']),
-      recentlyUpdatedAnimes: _parseList(data['recentlyUpdatedAnimes']),
-      topRatedAnimes: _parseList(data['topRatedAnimes']),
-      animeMovies: _parseList(data['animeMovies']),
-      trendingMangas: _parseList(data['trendingMangas']),
-      popularMangas: _parseList(data['popularMangas']),
-      latestMangas: _parseList(data['latestMangas']),
-      trendingManhwa: _parseList(data['trendingManhwa']),
-      trendingManhua: _parseList(data['trendingManhua']),
-      trendingNovels: _parseList(data['trendingNovels']),
-      popularNovels: _parseList(data['popularNovels']),
-      latestNovels: _parseList(data['latestNovels']),
-      topMovies: _parseList(data['topMovies']),
-      airingAnimes: _parseList(data['airingAnimes']),
-      favouriteAnimes: _parseList(data['favouriteAnimes']),
-      longRunningAnimes: _parseList(data['longRunningAnimes']),
-      topStudios: _parseStudios(data['topStudios']),
-    );
   }
 
   final anilistHomeProvider =

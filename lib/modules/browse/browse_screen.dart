@@ -320,7 +320,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         child: Icon(
           // Same filter glyph as the Library, so filtering reads the same on
           // every surface; only the colour marks an active filter.
-          Broken.slider_horizontal,
+          Broken.filter,
           size: 20,
           color: active
               ? theme.colorScheme.primary

@@ -576,6 +576,17 @@ class AppLocalizationsId extends AppLocalizations {
   String get theme => 'Tema';
 
   @override
+  String get sleep_timer => 'Sleep timer';
+
+  @override
+  String get sleep_timer_off => 'Off';
+
+  @override
+  String sleep_timer_minutes(int count) {
+    return '$count min';
+  }
+
+  @override
   String get dark_mode => 'Mode Gelap';
 
   @override
@@ -9485,6 +9496,10 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get discover_retry => 'Retry';
+
+  @override
+  String get discover_offline_hint =>
+      'Discovery keeps the last cached catalogue. Check your connection, then retry.';
 
   @override
   String discover_no_results_for(Object query) {

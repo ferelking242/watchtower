@@ -27,6 +27,8 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/main_view/widgets/namida_inner_drawer.dart';
 import 'package:watchtower/modules/search/widgets/watch_discover_drawer.dart';
 import 'package:watchtower/ui/widgets/namida_app_bar.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 // ── Display mode ───────────────────────────────────────────────────────────────
 
@@ -64,15 +66,15 @@ enum _DiscoverMode {
   IconData get icon {
     switch (this) {
       case _DiscoverMode.watch:
-        return Icons.play_circle_outline_rounded;
+        return Broken.play_circle;
       case _DiscoverMode.manga:
-        return Icons.menu_book_rounded;
+        return Broken.book;
       case _DiscoverMode.novel:
-        return Icons.auto_stories_rounded;
+        return Broken.note;
       case _DiscoverMode.music:
-        return Icons.music_note_rounded;
+        return Broken.music;
       case _DiscoverMode.custom:
-        return Icons.extension_rounded;
+        return Broken.element_4;
     }
   }
 }
@@ -119,11 +121,11 @@ enum _ContentType {
 // ── Sort options ───────────────────────────────────────────────────────────────
 
 enum _SortOption {
-  trending(Icons.local_fire_department_outlined, 'TRENDING_DESC'),
-  popularity(Icons.trending_up_rounded, 'POPULARITY_DESC'),
-  score(Icons.star_outline_rounded, 'SCORE_DESC'),
-  newest(Icons.fiber_new_outlined, 'START_DATE_DESC'),
-  az(Icons.sort_by_alpha_rounded, 'TITLE_ROMAJI');
+  trending(Broken.trend_up, 'TRENDING_DESC'),
+  popularity(Broken.chart_21, 'POPULARITY_DESC'),
+  score(Broken.star, 'SCORE_DESC'),
+  newest(Broken.calendar_tick, 'START_DATE_DESC'),
+  az(Broken.sort, 'TITLE_ROMAJI');
 
   const _SortOption(this.icon, this.aniSort);
   final IconData icon;
@@ -307,6 +309,7 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
 
   bool _isLoading = false;
   bool _hasError = false;
+  // ignore: unused_field
   String _errorMsg = '';
   int _requestGeneration = 0;
   int _page = 1;
@@ -322,6 +325,7 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
   // Scroll-aware state
   bool _searchCollapsed = false;
   bool _showFab = false;
+  // ignore: unused_field
   bool _filterOpen = false;
 
   // View/display options
@@ -618,6 +622,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   // FIX 1: Full-height blur glass sheet — covers the dock, Cancel/Apply footer,
   //         Sort By section + Display Mode section (like Library filter box).
 
+  // ignore: unused_element
   void _showMoreSheet(BuildContext ctx) {
     final cs = Theme.of(ctx).colorScheme;
     final isDark = Theme.of(ctx).brightness == Brightness.dark;
@@ -666,7 +671,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                               if (_hasActiveFilters) ...[
                                 ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading: Icon(Icons.delete_outline_rounded, color: cs.error),
+                                  leading: Icon(Broken.trash, color: cs.error),
                                   title: Text(
                                     context.l10n.discover_clear_filters,
                                     style: TextStyle(color: cs.error),
@@ -760,7 +765,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                 childAspectRatio: 2.8,
                                 children: [
                                   _DisplayModeBtn(
-                                    icon: Icons.grid_view_rounded,
+                                    icon: Broken.grid_2,
                                     label: context.l10n.discover_display_compact,
                                     selected: localDisplay == _DiscoverDisplayMode.compact,
                                     cs: cs,
@@ -771,7 +776,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                     }),
                                   ),
                                   _DisplayModeBtn(
-                                    icon: Icons.grid_on_rounded,
+                                    icon: Broken.grid_3,
                                     label: context.l10n.discover_display_comfortable,
                                     selected: localDisplay == _DiscoverDisplayMode.comfortable,
                                     cs: cs,
@@ -782,7 +787,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                     }),
                                   ),
                                   _DisplayModeBtn(
-                                    icon: Icons.local_movies_rounded,
+                                    icon: Broken.video_square,
                                     label: context.l10n.discover_display_cinema,
                                     selected: localDisplay == _DiscoverDisplayMode.cinema,
                                     cs: cs,
@@ -793,7 +798,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                     }),
                                   ),
                                   _DisplayModeBtn(
-                                    icon: Icons.view_list_rounded,
+                                    icon: Broken.row_vertical,
                                     label: context.l10n.discover_display_list,
                                     selected: localDisplay == _DiscoverDisplayMode.list,
                                     cs: cs,
@@ -859,7 +864,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                 Divider(height: 1, color: cs.outlineVariant),
                                 ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading: Icon(Icons.swap_horiz_rounded, color: cs.primary),
+                                  leading: Icon(Broken.arrow_swap_horizontal, color: cs.primary),
                                   title: Text(context.l10n.discover_change_extension),
                                   onTap: () {
                                     Navigator.pop(sheetCtx);
@@ -948,7 +953,6 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final showSearch = _mode != _DiscoverMode.music && _mode != _DiscoverMode.custom;
-    final showFilters = _mode != _DiscoverMode.music && _mode != _DiscoverMode.custom;
 
     return NamidaInnerDrawer(
       key: _drawerKey,
@@ -971,7 +975,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 isDark: isDark,
                 searchCollapsed: _searchCollapsed && showSearch,
                 onDrawerTap: () => _drawerKey.currentState?.toggle(),
-                onMoreTap: () => _showMoreSheet(context),
+                moreButton: _buildMoreButton(context, cs, isDark),
                 onSearchTap: _expandSearch,
                 onModeChanged: (m) {
                   if (m == _DiscoverMode.custom) {
@@ -1011,35 +1015,172 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _FilterIconButton(
-                          active: _filterOpen || _hasActiveFilters,
-                          count: _activeFilterCount,
-                          cs: cs,
-                          isDark: isDark,
-                          onTap: () => setState(() => _filterOpen = !_filterOpen),
+                        AdaptiveOverlayMenuButton(
+                          menuWidth: 330,
+                          trigger: _FilterIconButton(
+                            active: _hasActiveFilters,
+                            count: _activeFilterCount,
+                            cs: cs,
+                            isDark: isDark,
+                            onTap: () {},
+                          ),
+                          contentBuilder: (close) => SizedBox(
+                            width: 320,
+                            child: _buildFilterPanel(context, cs, isDark),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-              // ── 3. Filter panel (collapses together with search on scroll) ─
-              if (showFilters)
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeInOut,
-                  child: (_filterOpen && !_searchCollapsed)
-                      ? _buildFilterPanel(context, cs, isDark)
-                      : const SizedBox.shrink(),
-                ),
-
               // ── 4. Content ─────────────────────────────────────────────────
-              Expanded(child: _buildContent(context, cs, isDark)),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: (details) {
+                    final velocity = details.primaryVelocity ?? 0;
+                    if (velocity.abs() < 280) return;
+                    const modes = [
+                      _DiscoverMode.watch,
+                      _DiscoverMode.manga,
+                      _DiscoverMode.novel,
+                      _DiscoverMode.music,
+                    ];
+                    final index = modes.indexOf(_mode);
+                    if (index < 0) return;
+                    final next = velocity < 0 ? index + 1 : index - 1;
+                    if (next >= 0 && next < modes.length) {
+                      _setMode(modes[next]);
+                    }
+                  },
+                  child: _buildContent(context, cs, isDark),
+                ),
+              ),
             ],
           ),
         ),
       ), // Scaffold
     ); // NamidaInnerDrawer
+  }
+
+  // ── More menu (glass overlay, same component as the Library menus) ─────────
+
+  Widget _buildMoreButton(BuildContext context, ColorScheme cs, bool isDark) {
+    final l10n = context.l10n;
+
+    Widget item({
+      required IconData icon,
+      required String label,
+      bool selected = false,
+      required VoidCallback onTap,
+    }) => AdaptiveOverlayItem(
+      icon: icon,
+      label: label,
+      selected: selected,
+      onTap: onTap,
+    );
+
+    void apply(VoidCallback mutate) {
+      setState(mutate);
+    }
+
+    return AdaptiveOverlayMenuButton(
+      menuWidth: 280,
+      trigger: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Icon(Broken.more_2, size: 22),
+      ),
+      contentBuilder: (close) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdaptiveOverlaySection(title: l10n.discover_section_sort),
+          for (final sort in _SortOption.values)
+            item(
+              icon: sort.icon,
+              label: sort.label(l10n),
+              selected: _sort == sort,
+              onTap: () {
+                close();
+                apply(() => _sort = sort);
+                _fetchResults(reset: true);
+              },
+            ),
+          const AdaptiveOverlayDivider(),
+          AdaptiveOverlaySection(title: l10n.discover_section_display),
+          item(
+            icon: Broken.category,
+            label: l10n.discover_display_compact,
+            selected: _displayMode == _DiscoverDisplayMode.compact,
+            onTap: () {
+              close();
+              apply(() => _displayMode = _DiscoverDisplayMode.compact);
+            },
+          ),
+          item(
+            icon: Broken.grid_2,
+            label: l10n.discover_display_comfortable,
+            selected: _displayMode == _DiscoverDisplayMode.comfortable,
+            onTap: () {
+              close();
+              apply(() => _displayMode = _DiscoverDisplayMode.comfortable);
+            },
+          ),
+          item(
+            icon: Broken.video_horizontal,
+            label: l10n.discover_display_cinema,
+            selected: _displayMode == _DiscoverDisplayMode.cinema,
+            onTap: () {
+              close();
+              apply(() => _displayMode = _DiscoverDisplayMode.cinema);
+            },
+          ),
+          item(
+            icon: Broken.row_vertical,
+            label: l10n.discover_display_list,
+            selected: _displayMode == _DiscoverDisplayMode.list,
+            onTap: () {
+              close();
+              apply(() => _displayMode = _DiscoverDisplayMode.list);
+            },
+          ),
+          if (_displayMode != _DiscoverDisplayMode.list) ...[
+            const AdaptiveOverlayDivider(),
+            AdaptiveOverlaySection(title: l10n.media_columns_count),
+            for (final columns in const [0, 2, 3, 4, 5])
+              item(
+                icon: Broken.element_3,
+                label: columns == 0
+                    ? l10n.media_automatic
+                    : l10n.media_columns_n(columns),
+                selected: _columnsCount == columns,
+                onTap: () {
+                  close();
+                  apply(() => _columnsCount = columns);
+                },
+              ),
+          ],
+          const AdaptiveOverlayDivider(),
+          item(
+            icon: Broken.refresh_2,
+            label: l10n.refresh,
+            onTap: () {
+              close();
+              _fetchResults(reset: true);
+            },
+          ),
+          item(
+            icon: Broken.setting_2,
+            label: l10n.settings,
+            onTap: () {
+              close();
+              context.push('/settings');
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   // ── FAB ───────────────────────────────────────────────────────────────────────
@@ -1058,7 +1199,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
         ),
         backgroundColor: cs.primaryContainer,
         foregroundColor: cs.onPrimaryContainer,
-        child: const Icon(Icons.keyboard_arrow_up_rounded, size: 22),
+        child: const Icon(Broken.arrow_up_2, size: 22),
       ),
     );
   }
@@ -1106,7 +1247,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           child: Row(
             children: [
               Icon(
-                Icons.eighteen_up_rating_rounded,
+                Broken.info_circle,
                 size: 14,
                 color: _adult ? cs.error : cs.onSurface.withValues(alpha: 0.65),
               ),
@@ -1125,7 +1266,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                   ),
                 ),
               ),
-              if (_adult) Icon(Icons.check_rounded, size: 13, color: cs.error),
+              if (_adult) Icon(Broken.tick_circle, size: 13, color: cs.error),
             ],
           ),
         ),
@@ -1140,7 +1281,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           // Panel header: label + clear
           Row(
             children: [
-              Icon(Icons.tune_rounded, size: 13, color: cs.onSurfaceVariant),
+              Icon(Broken.setting_4, size: 13, color: cs.onSurfaceVariant),
               const SizedBox(width: 5),
               Text(
                 context.l10n.discover_filters,
@@ -1179,7 +1320,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.delete_outline_rounded, size: 13, color: cs.error),
+                        Icon(Broken.trash, size: 13, color: cs.error),
                         const SizedBox(width: 3),
                         Text(
                           context.l10n.discover_clear,
@@ -1203,7 +1344,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             children: [
               Expanded(
                 child: drop(
-                  icon: Icons.category_outlined,
+                  icon: Broken.category,
                   label: _type.label(context.l10n),
                   active: _typeIsChanged,
                   onTap: () => _showEnumPicker<_ContentType>(
@@ -1240,7 +1381,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               const SizedBox(width: 6),
               Expanded(
                 child: drop(
-                  icon: Icons.label_outline_rounded,
+                  icon: Broken.tag,
                   label: _genre ?? context.l10n.discover_genre,
                   active: _genre != null,
                   onTap: () => _showStringPicker(
@@ -1268,7 +1409,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             children: [
               Expanded(
                 child: drop(
-                  icon: Icons.tv_outlined,
+                  icon: Broken.monitor,
                   label: _format ?? context.l10n.discover_format,
                   active: _format != null,
                   onTap: () => _showStringPicker(
@@ -1289,7 +1430,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               const SizedBox(width: 6),
               Expanded(
                 child: drop(
-                  icon: Icons.eco_outlined,
+                  icon: Broken.tree,
                   label: _season != null
                       ? _seasonLabel(
                           _kSeasons
@@ -1330,7 +1471,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
           // ── Row 3 (1 col full): Année ─────────────────────────────────────
           drop(
-            icon: Icons.calendar_today_outlined,
+            icon: Broken.calendar,
             label: _timeless
                 ? context.l10n.discover_year
                 : (_seasonYear?.toString() ?? context.l10n.discover_year),
@@ -1345,7 +1486,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             children: [
               Expanded(
                 child: drop(
-                  icon: Icons.pending_outlined,
+                  icon: Broken.clock,
                   label: _status != null
                       ? _statusLabel(
                           _kStatuses
@@ -1381,7 +1522,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               const SizedBox(width: 6),
               Expanded(
                 child: drop(
-                  icon: Icons.star_outline_rounded,
+                  icon: Broken.star,
                   label: _minScore != null
                       ? '$_minScore+ ★'
                       : context.l10n.discover_score_min,
@@ -1576,37 +1717,12 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   }
 
   Widget _buildErrorState(ColorScheme cs) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off_outlined, size: 48, color: cs.error),
-            const SizedBox(height: 12),
-            Text(
-              context.l10n.discover_load_failed,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface,
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _errorMsg,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.tonalIcon(
-              onPressed: () => _fetchResults(reset: true),
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text(context.l10n.discover_retry),
-            ),
-          ],
-        ),
-      ),
+    // Never surface the raw exception. The animated offline state offers the
+    // same retry + network-settings actions as the film/series hub.
+    return OfflineContentState(
+      title: context.l10n.discover_load_failed,
+      message: context.l10n.discover_offline_hint,
+      onRetry: () => _fetchResults(reset: true),
     );
   }
 
@@ -1722,7 +1838,7 @@ class _DiscoveryHeader extends StatelessWidget {
   final bool isDark;
   final bool searchCollapsed;
   final VoidCallback onDrawerTap;
-  final VoidCallback onMoreTap;
+  final Widget moreButton;
   final VoidCallback onSearchTap;
   final void Function(_DiscoverMode) onModeChanged;
 
@@ -1733,7 +1849,7 @@ class _DiscoveryHeader extends StatelessWidget {
     required this.isDark,
     required this.searchCollapsed,
     required this.onDrawerTap,
-    required this.onMoreTap,
+    required this.moreButton,
     required this.onSearchTap,
     required this.onModeChanged,
   });
@@ -1768,7 +1884,7 @@ class _DiscoveryHeader extends StatelessWidget {
                 const SizedBox(width: 2),
               ],
               // More button
-              NamidaAppBarIcon(icon: Broken.more_square, onPressed: onMoreTap),
+              moreButton,
             ],
           ),
         ),
@@ -1808,6 +1924,7 @@ class _FilterIconButton extends StatelessWidget {
   final int count;
   final ColorScheme cs;
   final bool isDark;
+  // ignore: unused_field
   final VoidCallback onTap;
 
   const _FilterIconButton({
@@ -1820,9 +1937,7 @@ class _FilterIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
+    return Stack(
         clipBehavior: Clip.none,
         children: [
           AnimatedContainer(
@@ -1842,7 +1957,7 @@ class _FilterIconButton extends StatelessWidget {
               ),
             ),
             child: Icon(
-              active ? Broken.filter : Broken.filter_search,
+              Broken.filter,
               size: 18,
               color: active ? cs.primary : cs.onSurfaceVariant,
             ),
@@ -1864,8 +1979,7 @@ class _FilterIconButton extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
+      );
   }
 }
 
@@ -1949,7 +2063,7 @@ class _CustomEmptyState extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: cs.primary.withValues(alpha: 0.25), width: 1.5),
               ),
-              child: Icon(Icons.extension_rounded, size: 42, color: cs.primary),
+              child: Icon(Broken.element_plus, size: 42, color: cs.primary),
             ),
             const SizedBox(height: 22),
             Text(
@@ -1970,7 +2084,7 @@ class _CustomEmptyState extends StatelessWidget {
             const SizedBox(height: 28),
             FilledButton.icon(
               onPressed: onPickSource,
-              icon: const Icon(Icons.add_rounded, size: 18),
+              icon: const Icon(Broken.add, size: 18),
               label: Text(context.l10n.discover_select_extension),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -2209,7 +2323,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                         hintText: context.l10n.discover_search_in(
                           widget.source.name ?? '',
                         ),
-                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                        prefixIcon: const Icon(Broken.search_normal_1, size: 18),
                         isDense: true,
                         filled: true,
                         fillColor: isDark ? const Color(0xFF2C2C2E) : cs.surfaceContainerHigh,
@@ -2327,7 +2441,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                     setState(() => _query = v.trim());
                     _loadPage(reset: true);
                   },
-                  style: TextStyle(fontSize: 14, color: cs.onSurface),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: context.l10n.discover_search_in(
                       widget.source.name ?? '',
@@ -2336,11 +2450,11 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                       fontSize: 13,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
-                    prefixIcon: Icon(Icons.search_rounded, size: 18, color: cs.onSurfaceVariant),
+                    prefixIcon: Icon(Broken.search_normal_1, size: 18, color: cs.onSurfaceVariant),
                     suffixIcon: _query.isNotEmpty
                         ? GestureDetector(
                             onTap: _clearSearch,
-                            child: Icon(Icons.close_rounded, size: 16, color: cs.onSurfaceVariant),
+                            child: Icon(Broken.close_circle, size: 16, color: cs.onSurfaceVariant),
                           )
                         : null,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -2396,10 +2510,10 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                       src.iconUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) =>
-                          Icon(Icons.extension_rounded, size: 18, color: cs.primary),
+                          Icon(Broken.element_plus, size: 18, color: cs.primary),
                     ),
                   )
-                : Icon(Icons.extension_rounded, size: 18, color: cs.primary),
+                : Icon(Broken.element_plus, size: 18, color: cs.primary),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -2411,7 +2525,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
           ),
           TextButton.icon(
             onPressed: widget.onChangeTap,
-            icon: const Icon(Icons.swap_horiz_rounded, size: 14),
+            icon: const Icon(Broken.arrow_swap_horizontal, size: 14),
             label: Text(
               context.l10n.discover_change,
               style: const TextStyle(fontSize: 12),
@@ -2430,35 +2544,10 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
 
   Widget _buildGrid(ColorScheme cs, bool isDark) {
     if (_hasError && _items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.cloud_off_outlined, size: 44, color: cs.error),
-              const SizedBox(height: 12),
-              Text(
-                context.l10n.discover_load_error,
-                style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _errorMsg ?? '',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-              FilledButton.tonalIcon(
-                onPressed: () => _loadPage(reset: true),
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(context.l10n.discover_retry),
-              ),
-            ],
-          ),
-        ),
+      return OfflineContentState(
+        title: context.l10n.discover_load_error,
+        message: context.l10n.discover_offline_hint,
+        onRetry: () => _loadPage(reset: true),
       );
     }
 
@@ -2554,7 +2643,7 @@ class _SourcePickerSheet extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.extension_off_rounded, size: 48, color: cs.onSurfaceVariant),
+                        Icon(Broken.close_circle, size: 48, color: cs.onSurfaceVariant),
                         const SizedBox(height: 12),
                         Text(
                           context.l10n.discover_no_extension_installed,
@@ -2612,13 +2701,13 @@ class _SourcePickerSheet extends StatelessWidget {
                                           src.iconUrl!,
                                           fit: BoxFit.cover,
                                           errorBuilder: (_, _, _) => Icon(
-                                            Icons.extension_rounded,
+                                            Broken.element_plus,
                                             size: 22,
                                             color: cs.primary,
                                           ),
                                         ),
                                       )
-                                    : Icon(Icons.extension_rounded, size: 22, color: cs.primary),
+                                    : Icon(Broken.element_plus, size: 22, color: cs.primary),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -2663,7 +2752,7 @@ class _SourcePickerSheet extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Icon(
-                                Icons.chevron_right_rounded,
+                                Broken.arrow_right_3,
                                 size: 18,
                                 color: cs.onSurface.withValues(alpha: 0.35),
                               ),
@@ -2783,7 +2872,7 @@ class _SearchField extends StatelessWidget {
         onChanged: onChanged,
         style: TextStyle(color: cs.onSurface, fontSize: 14),
         decoration: InputDecoration(
-          prefixIcon: Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 18),
+          prefixIcon: Icon(Broken.search_normal_1, color: cs.onSurfaceVariant, size: 18),
           hintText: context.l10n.discover_search,
           hintStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
           border: InputBorder.none,
@@ -2852,7 +2941,7 @@ class _FilterDropdown extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.expand_more_rounded,
+              Broken.arrow_down_2,
               size: 13,
               color: enabled
                   ? cs.onSurface.withValues(alpha: 0.40)
@@ -2948,7 +3037,7 @@ class _MediaCard extends StatelessWidget {
                             return Container(
                               color: cs.surfaceContainerHigh,
                               child: Icon(
-                                Icons.broken_image_outlined,
+                                Broken.image,
                                 color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                               ),
                             );
@@ -2960,7 +3049,7 @@ class _MediaCard extends StatelessWidget {
                   : Container(
                       color: cs.surfaceContainerHigh,
                       child: Icon(
-                        Icons.image_outlined,
+                        Broken.image,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
                     ),
@@ -3095,7 +3184,7 @@ class _MediaListTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 10),
               child: Icon(
-                Icons.chevron_right_rounded,
+                Broken.arrow_right_3,
                 size: 18,
                 color: cs.onSurface.withValues(alpha: 0.30),
               ),
@@ -3163,7 +3252,7 @@ class _EnumPickerSheet<T> extends StatelessWidget {
                         fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
-                    trailing: isSel ? Icon(Icons.check_rounded, color: cs.primary, size: 18) : null,
+                    trailing: isSel ? Icon(Broken.tick_circle, color: cs.primary, size: 18) : null,
                     onTap: () => Navigator.pop(context, item),
                   );
                 },
@@ -3219,7 +3308,7 @@ class _StringPickerSheet extends StatelessWidget {
                         fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
-                    trailing: isSel ? Icon(Icons.check_rounded, color: cs.primary, size: 18) : null,
+                    trailing: isSel ? Icon(Broken.tick_circle, color: cs.primary, size: 18) : null,
                     onTap: () => Navigator.pop(context, item),
                   );
                 },
@@ -3269,7 +3358,7 @@ class _MediaCardComfortable extends StatelessWidget {
                   : Container(
                       color: cs.surfaceContainerHigh,
                       child: Icon(
-                        Icons.image_outlined,
+                        Broken.image,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
                     ),
@@ -3337,7 +3426,7 @@ class _MediaCardCinema extends StatelessWidget {
               Container(
                 color: cs.surfaceContainerHigh,
                 child: Icon(
-                  Icons.image_outlined,
+                  Broken.image,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ),

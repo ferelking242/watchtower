@@ -578,6 +578,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get theme => 'Thème';
 
   @override
+  String get sleep_timer => 'Minuteur';
+
+  @override
+  String get sleep_timer_off => 'Arrêt';
+
+  @override
+  String sleep_timer_minutes(int count) {
+    return '$count min';
+  }
+
+  @override
   String get dark_mode => 'Mode sombre';
 
   @override
@@ -823,7 +834,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get read => 'Commencer';
 
   @override
-  String get watch => 'Regarder';
+  String get watch => 'Vidéos';
 
   @override
   String get popular => 'Populaire';
@@ -9443,7 +9454,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get discover_title => 'Explorer';
 
   @override
-  String get discover_mode_watch => 'Watch';
+  String get discover_mode_watch => 'Tout';
 
   @override
   String get discover_mode_manga => 'Manga';
@@ -9612,6 +9623,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get discover_retry => 'Réessayer';
+
+  @override
+  String get discover_offline_hint =>
+      'La découverte garde le dernier catalogue en cache. Vérifiez votre connexion, puis réessayez.';
 
   @override
   String discover_no_results_for(Object query) {

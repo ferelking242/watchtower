@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -414,7 +415,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         SliverToBoxAdapter(
           child: TmdbFeaturedStack(
             title: context.l10n.home_spotlight,
-            icon: Icons.auto_awesome_rounded,
+            icon: Broken.star_1,
             color: const Color(0xFFE84393),
             items: all.take(8).toList(),
             onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
@@ -424,7 +425,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         SliverToBoxAdapter(
           child: TmdbFeaturedStack(
             title: context.l10n.home_animation,
-            icon: Icons.animation_rounded,
+            icon: Broken.video_play,
             color: const Color(0xFF00B894),
             items: animation.take(8).toList(),
             onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
@@ -502,7 +503,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         SliverToBoxAdapter(
           child: TmdbFeaturedStack(
             title: context.l10n.home_spotlight,
-            icon: Icons.auto_awesome_rounded,
+            icon: Broken.star_1,
             color: const Color(0xFFE84393),
             items: all.take(8).toList(),
             onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
@@ -512,7 +513,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
         SliverToBoxAdapter(
           child: TmdbFeaturedStack(
             title: context.l10n.home_animation,
-            icon: Icons.animation_rounded,
+            icon: Broken.video_play,
             color: const Color(0xFF00B894),
             items: animation.take(8).toList(),
             onTap: (media) => ctx.push('/flixMediaDetail', extra: media),
@@ -607,7 +608,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
           SliverToBoxAdapter(
             child: TmdbFeaturedStack(
               title: '$itemLabel · ${definition.$2}',
-              icon: Icons.public_rounded,
+              icon: Broken.global,
               color: definition.$3,
               items: unique.values
                   .where((media) => media.originalLanguage == definition.$1)
@@ -647,7 +648,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
       case _HomeTab.occidental:
         return _promoTab(
           ctx,
-          icon: Icons.public_rounded,
+          icon: Broken.global,
           title: context.l10n.home_western,
           subtitle: context.l10n.home_western_sub,
           color: const Color(0xFF2980B9),
@@ -1733,7 +1734,7 @@ class _SpotlightSectionState extends State<_SpotlightSection> {
             children: [
               _SectionHeader(
                 title: context.l10n.home_favorite,
-                icon: Icons.auto_awesome_rounded,
+                icon: Broken.star_1,
                 color: const Color(0xFFE84393),
               ),
               if (isWide)

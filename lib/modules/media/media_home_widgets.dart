@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -48,6 +49,7 @@ import 'widgets/bulk_enqueue_controller.dart';
 import 'widgets/bulk_enqueue_dialog.dart';
 import 'widgets/catalog_bulk_download_sheet.dart';
 import 'widgets/download_unit.dart';
+import 'widgets/wave_pull_refresh.dart';
 
 /// One feed composition for both Hub destinations. Only the selected data
 /// lists and the catalogue paths change between films and series.
@@ -72,6 +74,12 @@ class MainMediaDisplay extends StatefulWidget {
 class _MainMediaDisplayState extends State<MainMediaDisplay> {
   final _feedController = ScrollController();
   bool _showCompactHeader = false;
+
+  Future<void> _refreshHub() async {
+    ProviderScope.containerOf(context, listen: false)
+        .invalidate(tmdbHomeProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+  }
 
   List<TmdbMedia> get _trending =>
       widget.isTv ? widget.home.trendingTv : widget.home.trendingMovies;
@@ -129,12 +137,12 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
 
     return Stack(
       children: [
-        RefreshIndicator(
-          onRefresh: () async {},
+        WavePullRefresh(
+          onRefresh: _refreshHub,
           child: CustomScrollView(
             controller: _feedController,
             physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+              parent: ClampingScrollPhysics(),
             ),
             slivers: [
               SliverToBoxAdapter(
@@ -199,7 +207,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                   ),
                   TmdbFeaturedStack(
                     title: context.l10n.media_watch_this_week,
-                    icon: Icons.event_available_rounded,
+                    icon: Broken.calendar_tick,
                     color: const Color(0xFF00B894),
                     items: [
                       ..._trending,
@@ -282,6 +290,12 @@ class MainMoviesDisplay extends StatefulWidget {
 }
 
 class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
+  Future<void> _refreshHub() async {
+    ProviderScope.containerOf(context, listen: false)
+        .invalidate(tmdbHomeProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+  }
+
   void _openSearch(BuildContext context) => context.push(
     '/flixSearch',
     extra: const FlixSearchPayload(hub: FlixSearchContext.movies),
@@ -332,12 +346,12 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
 
     return Stack(
       children: [
-        RefreshIndicator(
-          onRefresh: () async {},
+        WavePullRefresh(
+          onRefresh: _refreshHub,
           child: CustomScrollView(
             controller: _feedController,
             physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+              parent: ClampingScrollPhysics(),
             ),
             slivers: [
               SliverToBoxAdapter(
@@ -391,7 +405,7 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                   ),
                   TmdbFeaturedStack(
                     title: context.l10n.media_watch_this_week,
-                    icon: Icons.event_available_rounded,
+                    icon: Broken.calendar_tick,
                     color: const Color(0xFF00B894),
                     items: [
                       ...widget.home.trendingMovies,
@@ -561,7 +575,7 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                 ),
                 TmdbFeaturedStack(
                   title: context.l10n.media_watch_this_week,
-                  icon: Icons.event_available_rounded,
+                  icon: Broken.calendar_tick,
                   color: const Color(0xFF00B894),
                   items: [
                     ...widget.home.trendingTv,
@@ -895,6 +909,170 @@ class _HeroLiveButton extends StatelessWidget {
   }
 }
 
+class _HubSectionMenu extends StatelessWidget {
+  const _HubSectionMenu({
+    required this.title,
+    required this.items,
+    this.discoverPath,
+    this.isTv = false,
+  });
+
+  final String title;
+  final List<TmdbMedia> items;
+  final String? discoverPath;
+  final bool isTv;
+
+  void _openList(BuildContext context, {bool select = false}) {
+    final path = discoverPath;
+    if (path == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TmdbMoviesListScreen(
+          title: title,
+          path: path,
+          initialItems: items,
+          isTv: isTv,
+          startSelection: select,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AdaptiveOverlayMenuButton(
+      menuWidth: 250,
+      trigger: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Icon(Broken.more_2, size: 20),
+      ),
+      contentBuilder: (close) => _HubSectionMenuPanel(
+        title: title,
+        close: close,
+        canSeeAll: discoverPath != null,
+        onRefresh: () {
+          close();
+          ProviderScope.containerOf(context).invalidate(tmdbHomeProvider);
+        },
+        onSelect: () {
+          close();
+          _openList(context, select: true);
+        },
+        onSeeAll: () {
+          close();
+          _openList(context);
+        },
+        onDownload: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.media_extension_only)),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HubSectionMenuPanel extends StatefulWidget {
+  const _HubSectionMenuPanel({
+    required this.title,
+    required this.close,
+    required this.canSeeAll,
+    required this.onRefresh,
+    required this.onSelect,
+    required this.onSeeAll,
+    required this.onDownload,
+  });
+
+  final String title;
+  final VoidCallback close;
+  final bool canSeeAll;
+  final VoidCallback onRefresh;
+  final VoidCallback onSelect;
+  final VoidCallback onSeeAll;
+  final VoidCallback onDownload;
+
+  @override
+  State<_HubSectionMenuPanel> createState() => _HubSectionMenuPanelState();
+}
+
+class _HubSectionMenuPanelState extends State<_HubSectionMenuPanel> {
+  bool _downloadOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (_downloadOpen) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _downloadOpen = false),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 16, 6),
+              child: Row(
+                children: [
+                  const Icon(Broken.arrow_left_2, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    l10n.media_bulk_download,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          for (final count in const [5, 10, 25, 50])
+            AdaptiveOverlayItem(
+              icon: Broken.document_download,
+              label: l10n.media_download_count(
+                count,
+                catalogEntryUnitLabel(l10n, null, count),
+              ),
+              onTap: () {
+                widget.close();
+                widget.onDownload();
+              },
+            ),
+        ],
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AdaptiveOverlaySection(title: widget.title),
+        AdaptiveOverlayItem(
+          icon: Broken.refresh_2,
+          label: l10n.refresh,
+          onTap: widget.onRefresh,
+        ),
+        AdaptiveOverlayItem(
+          icon: Broken.tick_square,
+          label: l10n.common_select,
+          onTap: widget.onSelect,
+        ),
+        AdaptiveOverlayItem(
+          icon: Broken.document_download,
+          label: l10n.media_bulk_download,
+          trailing: const Icon(Broken.arrow_right_3, size: 14),
+          onTap: () => setState(() => _downloadOpen = true),
+        ),
+        if (widget.canSeeAll)
+          AdaptiveOverlayItem(
+            icon: Broken.eye,
+            label: l10n.media_see_all_arrow,
+            onTap: widget.onSeeAll,
+          ),
+      ],
+    );
+  }
+}
+
 class ScrollingMovies extends StatelessWidget {
   const ScrollingMovies({
     required this.title,
@@ -928,6 +1106,12 @@ class ScrollingMovies extends StatelessWidget {
                 isTv: isTv,
               ),
             ),
+          ),
+          trailing: _HubSectionMenu(
+            title: title,
+            items: items,
+            discoverPath: discoverPath,
+            isTv: isTv,
           ),
         ),
         SizedBox(
@@ -1003,6 +1187,12 @@ class ScrollingLandscapeMovies extends StatelessWidget {
                     ),
                   ),
                 ),
+          trailing: _HubSectionMenu(
+            title: title,
+            items: items,
+            discoverPath: discoverPath,
+            isTv: isTv,
+          ),
         ),
         SizedBox(
           height: 184,
@@ -2346,7 +2536,7 @@ class _CatalogDownloadMenuOverlayState
           AdaptiveOverlaySection(title: l10n.media_options),
           if (widget.onRefresh != null)
             AdaptiveOverlayItem(
-              icon: Icons.refresh_rounded,
+              icon: Broken.refresh_2,
               label: l10n.refresh,
               onTap: () => _runAction(widget.onRefresh!),
             ),
@@ -2405,6 +2595,7 @@ class _CatalogDownloadMenuOverlayState
           (CatalogBulkDownloadAction.download250, 250),
         ])
           AdaptiveOverlayItem(
+            icon: Broken.document_download,
             label: l10n.media_download_count(
               count,
               catalogEntryUnitLabel(l10n, widget.itemType, count),
@@ -2435,6 +2626,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     this.anilistFilter,
     this.initialAnilistItems = const [],
     this.onOpenAnilist,
+    this.startSelection = false,
     super.key,
   });
 
@@ -2453,7 +2645,8 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
        extensionSectionId = sectionId,
        anilistFilter = null,
        initialAnilistItems = const [],
-       onOpenAnilist = null;
+       onOpenAnilist = null,
+       startSelection = false;
 
   /// Paginated destination for an AniList filter. Reuses the same catalogue
   /// shell (sort/filter sheet, infinite scroll, grid) as the film/série
@@ -2472,7 +2665,8 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
        extensionSource = null,
        extensionSectionId = null,
        initialExtensionItems = const [],
-       anilistFilter = filter;
+       anilistFilter = filter,
+       startSelection = false;
 
   final String title;
   final String path;
@@ -2494,6 +2688,9 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
 
   /// Opens a tapped AniList media. Falls back to the AniList detail route.
   final ValueChanged<AnilistMedia>? onOpenAnilist;
+
+  /// Opens the page with bulk selection already active.
+  final bool startSelection;
 
   @override
   ConsumerState<TmdbMoviesListScreen> createState() =>
@@ -2520,6 +2717,94 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   int _extensionRequestVersion = 0;
   Timer? _extensionSearchDebounce;
   Object? _error;
+
+  // Bulk selection: shared by the three catalogue sources. Keys are prefixed by
+  // the source so a TMDB id cannot collide with an extension link.
+  late bool _selecting = widget.startSelection;
+  final Set<String> _selectedKeys = {};
+
+  bool get _selectionActive => _selecting && _selectedKeys.isNotEmpty;
+
+  String _tmdbKey(TmdbMedia media) => 'tmdb-${media.id}';
+
+  String _anilistKey(AnilistMedia media) => 'anilist-${media.id}';
+
+  String _extensionKey(MManga item) =>
+      'ext-${item.link ?? item.name ?? item.hashCode}';
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selecting = !_selecting;
+      if (!_selecting) _selectedKeys.clear();
+    });
+    HapticFeedback.lightImpact();
+  }
+
+  void _toggleSelected(String key) {
+    setState(() {
+      if (!_selectedKeys.add(key)) _selectedKeys.remove(key);
+    });
+    HapticFeedback.selectionClick();
+  }
+
+  List<MManga> get _selectedExtensionItems => _extensionItems
+      .where((item) => _selectedKeys.contains(_extensionKey(item)))
+      .toList(growable: false);
+
+  /// Overlays a tap-to-select target on a catalogue card while selection mode
+  /// is active. The card keeps its own onTap for normal browsing.
+  Widget _withSelection(String key, Widget child) {
+    if (!_selecting) return child;
+    final selected = _selectedKeys.contains(key);
+    final cs = Theme.of(context).colorScheme;
+    return Stack(
+      children: [
+        AbsorbPointer(absorbing: true, child: child),
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleSelected(key),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: selected
+                    ? cs.primary.withValues(alpha: 0.18)
+                    : Colors.transparent,
+                border: Border.all(
+                  color: selected
+                      ? cs.primary
+                      : Colors.white.withValues(alpha: 0.0),
+                  width: 2,
+                ),
+              ),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: selected ? cs.primary : Colors.black45,
+                      border: Border.all(color: Colors.white70, width: 1.5),
+                    ),
+                    child: Icon(
+                      selected ? Broken.tick_circle : Broken.add,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -2813,26 +3098,43 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   }
 
   Widget _buildFilterButton() {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Widget trigger({required bool active, required int count}) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      child: Badge(
+        isLabelVisible: count > 0,
+        label: Text('$count'),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active
+                ? cs.primary
+                : (isDark
+                      ? cs.onSurface.withValues(alpha: 0.08)
+                      : cs.onSurface.withValues(alpha: 0.06)),
+          ),
+          child: Icon(
+            // Same glyph as the Library filter, everywhere.
+            Broken.filter,
+            size: 19,
+            color: active
+                ? cs.onPrimary
+                : (isDark
+                      ? cs.onSurface.withValues(alpha: 0.60)
+                      : cs.onSurface.withValues(alpha: 0.55)),
+          ),
+        ),
+      ),
+    );
     if (_isExtension && _extensionFilters.isNotEmpty) {
       final activeCount = _activeExtensionFilterCount;
       return AdaptiveOverlayMenuButton(
         menuWidth: 340,
-        trigger: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Badge(
-            isLabelVisible: activeCount > 0,
-            label: Text('$activeCount'),
-            child: Icon(
-              Broken.slider_horizontal,
-              size: 18,
-              color: activeCount > 0
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface.withValues(
-                      alpha: 0.45,
-                    ),
-            ),
-          ),
-        ),
+        trigger: trigger(active: activeCount > 0, count: activeCount),
         contentBuilder: (close) => ExtensionFilterOverlay(
           filterList: _extensionFilters,
           onChanged: _onExtensionFiltersChanged,
@@ -2848,16 +3150,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     }
     return AdaptiveOverlayMenuButton(
       menuWidth: 300,
-      trigger: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Icon(
-          Broken.slider_horizontal,
-          size: 18,
-          color: _filter.isDefault
-              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)
-              : Theme.of(context).colorScheme.primary,
-        ),
-      ),
+      trigger: trigger(active: !_filter.isDefault, count: 0),
       contentBuilder: (close) => CatalogFilterOverlay(
         initial: _filter,
         typeOptions: _typeOptions(context.l10n),
@@ -2868,6 +3161,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         showTypeSection: !_isExtension,
         showYearsSection: !_isExtension,
         showRatingSection: !_isExtension,
+        onSelect: _toggleSelectionMode,
         close: close,
         onChanged: (value) => setState(() => _filter = value),
         searchValue: _searchQuery,
@@ -2892,16 +3186,25 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         action == CatalogBulkDownloadAction.download100 ||
         action == CatalogBulkDownloadAction.download250 ||
         action == CatalogBulkDownloadAction.downloadCustom;
-    if (isBulk && _isExtension) {
+    if (isBulk && _isExtension && _selectedExtensionItems.isEmpty) {
       await _drainAllPages();
       if (!mounted) return;
     }
     if (!mounted) return;
+    // TMDB/AniList entries are metadata only: downloads need an extension.
+    if (!_isExtension && isBulk) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.media_extension_only)),
+      );
+      return;
+    }
     CatalogBulkDownload.handleMenu(
       context,
       ref,
       widget.extensionSource,
-      _extensionItems,
+      _selectedExtensionItems.isEmpty
+          ? _extensionItems
+          : _selectedExtensionItems,
       action,
     );
   }
@@ -3070,6 +3373,15 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           // Menu 3 points, même composant glass que la Librairie.
           CatalogDownloadMenuButton(
             onSelected: _onListMenuAction,
+            onRefresh: _refreshAll,
+            onSelectMultiple: _toggleSelectionMode,
+            selectionActive: _selecting,
+            selectedCount: _selectedKeys.length,
+            onDownloadSelection: _selectedExtensionItems.isEmpty
+                ? null
+                : () => _onListMenuAction(
+                    CatalogBulkDownloadAction.downloadAll,
+                  ),
             itemType: widget.extensionSource?.itemType,
           ),
           const SizedBox(width: 6),
@@ -3133,12 +3445,15 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
                 }
                 final media = movies[index];
                 final source = 'flix-catalog-$index';
-                return _CatalogListRow(
-                  posterUrl: media.bestCover,
-                  title: media.displayTitle,
-                  metadata: _tmdbRowMetadata(media),
-                  onTap: () =>
-                      pushTmdbMediaDetail(context, media, source: source),
+                return _withSelection(
+                  _tmdbKey(media),
+                  _CatalogListRow(
+                    posterUrl: media.bestCover,
+                    title: media.displayTitle,
+                    metadata: _tmdbRowMetadata(media),
+                    onTap: () =>
+                        pushTmdbMediaDetail(context, media, source: source),
+                  ),
                 );
               },
             ),
@@ -3169,14 +3484,17 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
               }
               final media = movies[index];
               final source = 'flix-catalog-$index';
-              return PosterCard(
-                item: ContentItem.fromTmdb(media),
-                heroTag: tmdbHeroTag(media, source),
-                compact: _filter.layout == CatalogLayout.compact,
-                titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
-                showTitle: catalogLayoutShowTitle(_filter.layout),
-                onTap: () =>
-                    pushTmdbMediaDetail(context, media, source: source),
+              return _withSelection(
+                _tmdbKey(media),
+                PosterCard(
+                  item: ContentItem.fromTmdb(media),
+                  heroTag: tmdbHeroTag(media, source),
+                  compact: _filter.layout == CatalogLayout.compact,
+                  titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
+                  showTitle: catalogLayoutShowTitle(_filter.layout),
+                  onTap: () =>
+                      pushTmdbMediaDetail(context, media, source: source),
+                ),
               );
             },
           ),
@@ -3247,6 +3565,19 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     return line.isEmpty ? null : line;
   }
 
+  Future<void> _refreshAll() async {
+    if (_loading) return;
+    setState(() {
+      _page = 1;
+      _hasMore = true;
+      _movies.clear();
+      _anilistItems.clear();
+      _extensionItems.clear();
+      _error = null;
+    });
+    await _loadPage();
+  }
+
   Future<void> _refreshAnilist() async {
     setState(() {
       _anilistItems.clear();
@@ -3312,11 +3643,14 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             }
             final media = visible[index];
             final item = ContentItem.fromAnilist(media);
-            return _CatalogListRow(
-              posterUrl: item.posterUrl,
-              title: item.title,
-              metadata: _anilistRowMetadata(media),
-              onTap: () => onTap(media),
+            return _withSelection(
+              _anilistKey(media),
+              _CatalogListRow(
+                posterUrl: item.posterUrl,
+                title: item.title,
+                metadata: _anilistRowMetadata(media),
+                onTap: () => onTap(media),
+              ),
             );
           },
         ),
@@ -3351,25 +3685,27 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           }
           final media = visible[index];
           final item = ContentItem.fromAnilist(media);
+          final Widget card;
           if (isTagGrid) {
-            return TagCard(item: item, onTap: () => onTap(media));
-          }
-          if (isLandscapeGrid) {
-            return LandscapeCard(
+            card = TagCard(item: item, onTap: () => onTap(media));
+          } else if (isLandscapeGrid) {
+            card = LandscapeCard(
               item: item,
               width: double.infinity,
               onTap: () => onTap(media),
             );
+          } else {
+            card = PosterCard(
+              item: item,
+              width: double.infinity,
+              showMediaMetadata: true,
+              compact: _filter.layout == CatalogLayout.compact,
+              titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
+              showTitle: catalogLayoutShowTitle(_filter.layout),
+              onTap: () => onTap(media),
+            );
           }
-          return PosterCard(
-            item: item,
-            width: double.infinity,
-            showMediaMetadata: true,
-            compact: _filter.layout == CatalogLayout.compact,
-            titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
-            showTitle: catalogLayoutShowTitle(_filter.layout),
-            onTap: () => onTap(media),
-          );
+          return _withSelection(_anilistKey(media), card);
         },
       ),
     );
@@ -3409,11 +3745,14 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             return const AppShimmerBlock(radius: AppUI.cardRadius);
           }
           final item = items[index];
-          return _CatalogListRow(
-            posterUrl: item.imageUrl,
-            title: item.name ?? item.link ?? context.l10n.media_untitled,
-            metadata: _extensionRowMetadata(item),
-            onTap: () => _openExtensionItem(item),
+          return _withSelection(
+            _extensionKey(item),
+            _CatalogListRow(
+              posterUrl: item.imageUrl,
+              title: item.name ?? item.link ?? context.l10n.media_untitled,
+              metadata: _extensionRowMetadata(item),
+              onTap: () => _openExtensionItem(item),
+            ),
           );
         },
       );
@@ -3445,11 +3784,14 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             return const AppShimmerBlock(radius: AppUI.cardRadius);
           }
           final item = items[index];
-          return TagCard(
-            item: ContentItem.fromManga(item),
-            width: double.infinity,
-            height: 132,
-            onTap: () => _openExtensionItem(item),
+          return _withSelection(
+            _extensionKey(item),
+            TagCard(
+              item: ContentItem.fromManga(item),
+              width: double.infinity,
+              height: 132,
+              onTap: () => _openExtensionItem(item),
+            ),
           );
         },
       );
@@ -3479,27 +3821,29 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           return const AppShimmerBlock(radius: AppUI.cardRadius);
         }
         final item = items[index];
+        final Widget card;
         if (isTagGrid) {
-          return TagCard(
+          card = TagCard(
             item: ContentItem.fromManga(item),
             onTap: () => _openExtensionItem(item),
           );
-        }
-        if (isLandscapeGrid) {
-          return LandscapeCard(
+        } else if (isLandscapeGrid) {
+          card = LandscapeCard(
             item: ContentItem.fromManga(item),
             width: double.infinity,
             onTap: () => _openExtensionItem(item),
           );
+        } else {
+          card = PosterCard(
+            item: ContentItem.fromManga(item),
+            width: double.infinity,
+            compact: _filter.layout == CatalogLayout.compact,
+            titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
+            showTitle: catalogLayoutShowTitle(_filter.layout),
+            onTap: () => _openExtensionItem(item),
+          );
         }
-        return PosterCard(
-          item: ContentItem.fromManga(item),
-          width: double.infinity,
-          compact: _filter.layout == CatalogLayout.compact,
-          titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
-          showTitle: catalogLayoutShowTitle(_filter.layout),
-          onTap: () => _openExtensionItem(item),
-        );
+        return _withSelection(_extensionKey(item), card);
       },
     );
   }

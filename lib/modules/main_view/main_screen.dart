@@ -414,18 +414,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           final marketIndex = dest.indexOf(location ?? '/marketplace');
           currentIndex = marketIndex >= 0 ? marketIndex : 1;
         } else {
+          // Marketplace is menu-only in the normal dock. Browse keeps its place
+          // in the user's navigation order instead of being forced into the
+          // first row.
           final _mktI = dest.indexOf('/marketplace');
-          final _brwI = dest.indexOf('/browse');
           if (_mktI >= 0 && _mktI < 4) {
             dest = List<String>.from(dest)
               ..removeAt(_mktI)
               ..add('/marketplace');
-          }
-          final _brwI2 = dest.indexOf('/browse');
-          if (_brwI2 >= 4) {
-            dest = List<String>.from(dest)
-              ..removeAt(_brwI2)
-              ..insert(3, '/browse');
           }
         }
 
@@ -2399,6 +2395,65 @@ class _FloatingDockState extends State<_FloatingDock> {
             items.first.route == '_disableMarketplaceSwitch' ||
             items.first.route == '_nfileBack');
 
+    if (_menuOpen && !inSubDock) {
+      // The side menu is open: fold the floating dock into a single round
+      // back chip pinned to the bottom-left, clear of the menu sheet.
+      final size = 52.0 * dockScale;
+      return AnimatedContainer(
+        duration: Duration(milliseconds: dockAnimMs),
+        curve: Curves.easeInOut,
+        height: totalHeight,
+        alignment: Alignment.centerLeft,
+        padding: EdgeInsets.only(
+          left: 16,
+          bottom: _dockBottomPad + bottomPad * 0.5,
+          top: 4,
+        ),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.55, end: 1),
+          duration: Duration(milliseconds: dockAnimMs + 120),
+          curve: Curves.easeOutBack,
+          builder: (_, value, child) =>
+              Transform.scale(scale: value, child: child),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                widget.ref.read(menuOpenProvider.notifier).state = false;
+              },
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.45),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Broken.arrow_left_2,
+                  size: 22 * dockScale,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (inSubDock) {
       // ONE unified pill: [‹ | content items... | menu]
       // Back is a compact 28px chevron — de-emphasised, not a full slot.
@@ -3092,11 +3147,17 @@ class _RoundedOrClassicDock extends StatelessWidget {
             child: base,
           )
         : base;
+    final menuOpen = ref.watch(menuOpenProvider);
     // Blur + semi-transparent background (background opacity set in _ClassicDock)
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: shaped,
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      offset: menuOpen ? const Offset(0.47, 0) : Offset.zero,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: shaped,
+        ),
       ),
     );
   }

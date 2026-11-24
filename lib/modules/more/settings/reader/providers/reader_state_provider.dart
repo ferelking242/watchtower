@@ -194,7 +194,29 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
+  /// Videos first: the watch hub carries films, series, anime and reels, so it
+  /// leads the dock, then each catalogue in content order.
   final items = [
+    '/AnimeLibrary',
+    '/MoviesLibrary',
+    '/SeriesLibrary',
+    '/Library',
+    '/MangaLibrary',
+    '/NovelLibrary',
+    '/MusicLibrary',
+    '/GameLibrary',
+    '/history',
+    '/updates',
+    '/marketplace',
+    '/browse',
+    '/trackerLibrary',
+    '/settings',
+    '/discover',
+  ];
+
+  /// Previous shipped order. Installations that never reordered their dock are
+  /// moved to [items]; a custom order is left untouched.
+  static const _legacyDefault = [
     '/MoviesLibrary',
     '/discover',
     '/Library',
@@ -214,11 +236,22 @@ class NavigationOrderState extends _$NavigationOrderState {
 
   @override
   List<String> build() {
-    return _checkMissingItems(
-      (isar.settings.getSync(kSettingsId) ?? Settings()).navigationOrder
-              ?.toList() ??
-          [],
-    );
+    final stored =
+        (isar.settings.getSync(kSettingsId) ?? Settings()).navigationOrder
+            ?.toList() ??
+        [];
+    final order = stored.isEmpty || _sameOrder(stored, _legacyDefault)
+        ? List<String>.from(items)
+        : stored;
+    return _checkMissingItems(order);
+  }
+
+  bool _sameOrder(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   List<String> _checkMissingItems(List<String> navigationOrder) {

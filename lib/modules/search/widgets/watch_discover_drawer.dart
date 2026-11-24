@@ -10,6 +10,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart'
     show navigationOrderStateProvider, hideItemsStateProvider;
+import 'package:watchtower/modules/music/provider/sleep_timer_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart'
     show themeModeStateProvider, followSystemThemeStateProvider;
 
@@ -96,21 +97,22 @@ class WatchDiscoverDrawer extends ConsumerWidget {
               ),
             ),
 
-            // ── Theme mode toggle (system / clair / sombre) ────────────
+            // ── Theme mode box (system / clair / sombre) ────────────────
             const _ThemeModeToggleBox(),
 
-            // ── Bottom settings row ──────────────────────────────────────────
-            const SizedBox(height: 12),
+            // ── Sleep timer box ────────────────────────────────────────────
+            const _SleepTimerBox(),
+
+            // ── Bottom settings / theme row (always last) ───────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
               child: Row(
                 children: [
                   Expanded(
                     child: _NamidaDrawerListTile(
                       enabled: false,
-                      isCentered: true,
-                      iconSize: 22,
-                      title: '',
+                      iconSize: 20,
+                      title: context.l10n.theme,
                       icon: Broken.brush_1,
                       onTap: () {
                         onClose();
@@ -122,9 +124,8 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                   Expanded(
                     child: _NamidaDrawerListTile(
                       enabled: false,
-                      isCentered: true,
-                      iconSize: 22,
-                      title: '',
+                      iconSize: 20,
+                      title: context.l10n.settings,
                       icon: Broken.setting,
                       onTap: () {
                         onClose();
@@ -135,7 +136,7 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
           ],
         ),
       ),
@@ -145,6 +146,108 @@ class WatchDiscoverDrawer extends ConsumerWidget {
 
 // ── FR labels (mirrors discover_drawer) ───────────────────────────────────────
 
+
+// ── Sleep timer box ───────────────────────────────────────────────────────────
+
+class _SleepTimerBox extends ConsumerWidget {
+  const _SleepTimerBox();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final remaining = ref.watch(sleepTimerProvider);
+    final active = remaining != null;
+
+    Widget chip(String label, VoidCallback onTap, {bool selected = false}) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected
+                  ? cs.primary.withValues(alpha: 0.16)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected
+                    ? cs.primary.withValues(alpha: 0.55)
+                    : cs.outline.withValues(alpha: 0.16),
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Broken.clock, size: 13, color: cs.onSurfaceVariant),
+              const SizedBox(width: 5),
+              Text(
+                context.l10n.sleep_timer,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              if (active)
+                Text(
+                  context.l10n.sleep_timer_minutes(remaining!.inMinutes),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: cs.primary,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              chip('15', () {
+                ref.read(sleepTimerProvider.notifier).setSleepTimer(
+                  const Duration(minutes: 15),
+                );
+              }, selected: active && remaining!.inMinutes == 15),
+              chip('30', () {
+                ref.read(sleepTimerProvider.notifier).setSleepTimer(
+                  const Duration(minutes: 30),
+                );
+              }, selected: active && remaining!.inMinutes == 30),
+              chip('60', () {
+                ref.read(sleepTimerProvider.notifier).setSleepTimer(
+                  const Duration(minutes: 60),
+                );
+              }, selected: active && remaining!.inMinutes == 60),
+              chip(context.l10n.sleep_timer_off, () {
+                ref.read(sleepTimerProvider.notifier).cancelSleepTimer();
+              }, selected: !active),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ── Theme mode toggle box ──────────────────────────────────────────────────────
 // Segmented control: Système / Clair / Sombre — placed above Customization/Settings.
@@ -368,8 +471,8 @@ class _WatchLogoContainer extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          height: 54,
-          margin: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+          height: 66,
+          margin: const EdgeInsets.fromLTRB(12, 18, 12, 10),
           padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -396,7 +499,7 @@ class _WatchLogoContainer extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(width: 4),
-              Icon(Broken.watch, size: 32, color: fg),
+              Icon(Broken.watch, size: 46, color: fg),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
@@ -96,7 +97,7 @@ class _TmdbProductionSectionsState extends State<TmdbProductionSections> {
             final rail = rails[index];
             return TmdbFeaturedStack(
               title: '${widget.itemLabel} · ${rail.name}',
-              icon: Icons.business_rounded,
+              icon: Broken.building,
               color: const Color(0xFF6C5CE7),
               items: rail.items,
               onTap: widget.onTap,
