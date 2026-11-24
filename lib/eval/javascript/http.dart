@@ -198,12 +198,11 @@ Future<String> _toHttpResponse(
     url = rawUrl;
 
     final rawHeaders = args.length > 3 ? args[3] : null;
-    if (rawHeaders != null && rawHeaders is! Map) {
-      throw FormatException(
-        'HTTP bridge headers must be a Map, received ${rawHeaders.runtimeType}',
-      );
-    }
-    headers = (rawHeaders as Map?)?.toMapStringString;
+    // Extensions pass `headers` as an object, but some pass a JSON string (or a
+    // JS `undefined` that arrived as the literal "undefined"). Rejecting those
+    // with a FormatException failed the whole request for a cosmetic reason.
+    final headerMap = _coerceHeaders(rawHeaders);
+    headers = headerMap?.toMapStringString;
     trace(
       'start',
       details: 'method=$method browserFetchOnError=$browserFetchOnError',
@@ -818,4 +817,28 @@ extension ToMapExtension on Map? {
       (key, value) => MapEntry(key.toString(), value.toString()),
     );
   }
+}
+
+/// Accepts the header shapes extensions actually send.
+///
+/// The documented shape is an object, but several extensions pass a JSON
+/// string (`JSON.stringify(headers)`) or the literal `"undefined"`. Those used
+/// to throw `FormatException: HTTP bridge headers must be a Map`, which failed
+/// the whole request over a cosmetic argument mismatch.
+Map? _coerceHeaders(Object? raw) {
+  if (raw == null) return null;
+  if (raw is Map) return raw;
+  if (raw is String) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty || trimmed == 'undefined' || trimmed == 'null') {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(trimmed);
+      return decoded is Map ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
 }

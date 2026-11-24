@@ -263,6 +263,14 @@ class BrowserCapture {
 
   static final Map<String, _BrowserSession> _sessions = {};
 
+  /// Set once this isolate proves it cannot host a WebView.
+  ///
+  /// Extension code runs in background isolates, where platform channels throw
+  /// `Unsupported operation: Background isolates do not support
+  /// setMessageHandler()`. Every blocked-source call used to retry the fallback
+  /// and log the failure, so the discovery is remembered per isolate.
+  static bool _unavailableInIsolate = false;
+
   static BrowserCaptureSupport get support => browserCaptureSupportFor(
     isWeb: kIsWeb,
     operatingSystem: kIsWeb ? 'web' : Platform.operatingSystem,
@@ -276,26 +284,38 @@ class BrowserCapture {
   static Future<BrowserCaptureResult?> fetch(
     BrowserCaptureRequest request,
   ) async {
-    if (!isAvailable) return null;
+    if (!isAvailable || _unavailableInIsolate) return null;
     final uri = Uri.tryParse(request.url);
     final host = uri?.host.toLowerCase() ?? '';
     if (uri == null || host.isEmpty) return null;
 
-    final session = await _sessionFor(host, request);
-    if (session == null) return null;
     try {
-      final result = await session.fetch(request);
-      if (result != null) {
-        AppLogger.log(
-          '[BrowserCapture] ${redactUrl(request.url)} → ${result.statusCode} '
-          'served by the browser session',
-          logLevel: LogLevel.debug,
-          tag: LogTag.extension_,
-        );
+      final session = await _sessionFor(host, request);
+      if (session == null) return null;
+      try {
+        final result = await session.fetch(request);
+        if (result != null) {
+          AppLogger.log(
+            '[BrowserCapture] ${redactUrl(request.url)} → ${result.statusCode} '
+            'served by the browser session',
+            logLevel: LogLevel.debug,
+            tag: LogTag.extension_,
+          );
+        }
+        return result;
+      } finally {
+        _scheduleIdle(session);
       }
-      return result;
-    } finally {
-      _scheduleIdle(session);
+    } on UnsupportedError catch (error) {
+      _unavailableInIsolate = true;
+      _sessions.clear();
+      AppLogger.log(
+        '[BrowserCapture] browser fallback unavailable in this isolate '
+        '($error) — extension calls will use the plain HTTP path',
+        logLevel: LogLevel.debug,
+        tag: LogTag.extension_,
+      );
+      return null;
     }
   }
 

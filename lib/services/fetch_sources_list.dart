@@ -7,6 +7,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -102,6 +103,14 @@ Future<String> _fetchIndexBody({
   }
   final inflight = _indexInflight[url];
   if (inflight != null) return inflight;
+
+  // While offline every call paid for a 20s timeout (and retried), because the
+  // browse screen rebuilds call this several times. Serve the last known index
+  // instead, and fail fast when there is nothing to serve.
+  if (ConnectivityService.instance.isOffline) {
+    if (cached != null) return cached.body;
+    throw Exception('offline — extension index unavailable');
+  }
 
   final future = () async {
     rawHttp.Response req;

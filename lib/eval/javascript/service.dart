@@ -393,7 +393,11 @@ function extLog(level, msg) {
 
     final extensionScript =
         '${_normalizeJsExtensionCode(source.sourceCode ?? '')}\n'
-        'var extention = new DefaultExtension();';
+        'var extention = new DefaultExtension();\n'
+        // Older/imported extensions reference the conventional `main` alias.
+        // Without it every call died with "Undefined variable: main" even
+        // though the extension itself was fine.
+        'if (typeof main === "undefined") { var main = extention; }';
     final _initResult = _evaluateExtensionScript(extensionScript);
     if (_initResult.isError) {
       _extError(

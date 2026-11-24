@@ -690,10 +690,16 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
     await storage.deleteBtDirectory();
     // iOS: pre-create the download directory tree at launch so the folders
     // appear in the Files app without needing to trigger a download first.
+    // Storage may be temporarily unmounted; a failure here must not skip the
+    // notification service initialisation below.
     if (Platform.isIOS) {
-      final baseDir = await storage.getDirectory();
-      if (baseDir != null) {
-        await storage.createDirectorySafely('${baseDir.path}/download');
+      try {
+        final baseDir = await storage.getDirectory();
+        if (baseDir != null) {
+          await storage.createDirectorySafely('${baseDir.path}/download');
+        }
+      } catch (error) {
+        debugPrint('[startup] could not pre-create download folder: $error');
       }
     }
     // Ensure Watchtower/local folder exists for local media source.

@@ -1,7 +1,6 @@
 
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
-import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/modules/music/services/audio_player/custom_player.dart';
 import 'dart:async';
@@ -51,9 +50,8 @@ abstract class AudioPlayerInterface {
             async: true,
           ),
         ) {
-    _mkPlayer.stream.error.listen((event) {
-      AppLogger.reportError(event, StackTrace.current);
-    });
+    // Player errors are reported (deduped, and with a fatal-host stop) by
+    // [CustomPlayer]; a second listener here only doubled every log line.
   }
 
   /// Whether the current platform supports the audioplayers plugin

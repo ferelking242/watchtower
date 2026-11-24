@@ -19,6 +19,59 @@ class CustomPlayer extends Player {
   String _packageName = "";
   AndroidAudioManager? _androidAudioManager;
 
+  // MediaKit reports a failed stream as a *stream* of errors: libmpv keeps
+  // retrying an unreachable host on its own, so one dead URL produced ~2000
+  // identical errors and a 20 MB log in a single session. Report the first
+  // occurrence, count the repeats, and stop the player when the error can
+  // never clear without user action.
+  String? _lastPlayerError;
+  DateTime? _lastPlayerErrorAt;
+  int _suppressedPlayerErrors = 0;
+  bool _stoppedOnFatalError = false;
+
+  static final _unrecoverablePlayerError = RegExp(
+    r'Failed to resolve hostname|No address associated with hostname|'
+    r'Name or service not known|No such file or directory|'
+    r'Protocol not found|Failed to open .*No such file',
+    caseSensitive: false,
+  );
+
+  void _handlePlayerError(String event) {
+    final now = DateTime.now();
+    final repeated =
+        event == _lastPlayerError &&
+        _lastPlayerErrorAt != null &&
+        now.difference(_lastPlayerErrorAt!) < const Duration(seconds: 10);
+    _lastPlayerError = event;
+    _lastPlayerErrorAt = now;
+    if (repeated) {
+      _suppressedPlayerErrors++;
+      return;
+    }
+    final suppressed = _suppressedPlayerErrors;
+    _suppressedPlayerErrors = 0;
+    AppLogger.log.e(
+      suppressed > 0
+          ? '[MediaKitError] $event (same error repeated ${suppressed + 1}x in the last 10s)'
+          : '[MediaKitError] $event',
+    );
+    if (!_stoppedOnFatalError &&
+        _unrecoverablePlayerError.hasMatch(event) &&
+        state.playlist.medias.isNotEmpty) {
+      _stoppedOnFatalError = true;
+      final index = state.playlist.index;
+      final uri = (index >= 0 && index < state.playlist.medias.length)
+          ? state.playlist.medias[index].uri
+          : state.playlist.medias.first.uri;
+      AppLogger.log.w(
+        'Stopping playback: the media host cannot be reached and retrying '
+        'cannot fix it ($uri)',
+      );
+      // Let the queue/UI react instead of leaving a silent, retrying player.
+      unawaited(stop());
+    }
+  }
+
   CustomPlayer({super.configuration})
       : _playerStateStream = StreamController.broadcast() {
     nativePlayer.setProperty("network-timeout", "120");
@@ -51,13 +104,14 @@ class CustomPlayer extends Player {
         _playerStateStream.add(AudioPlaybackState.completed);
       }),
       stream.playlist.listen((event) {
+        // A new source deserves a fresh chance: the fatal-error latch only
+        // exists to stop libmpv from retrying one dead URL forever.
+        _stoppedOnFatalError = false;
         if (event.medias.isEmpty) {
           _playerStateStream.add(AudioPlaybackState.stopped);
         }
       }),
-      stream.error.listen((event) {
-        AppLogger.reportError('[MediaKitError] \n$event', StackTrace.current);
-      }),
+      stream.error.listen(_handlePlayerError),
       // Guard: stale local-proxy media is never mandatory. If the stream URL
       // is unreachable (port-0 race, server disposed during a pause), log once
       // and keep the app alive instead of throwing.

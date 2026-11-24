@@ -35,11 +35,20 @@ class BypassNotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+
+  /// Set when the platform channel is unusable in this isolate.
+  ///
+  /// Extension HTTP runs in background isolates, where
+  /// `flutter_local_notifications` throws `Unsupported operation: Background
+  /// isolates do not support setMessageHandler()`. Without this latch every
+  /// blocked-source call retried `init()` and logged the same failure.
+  bool _unavailableInIsolate = false;
+
   CloudflareSourceResolver? _sourceResolver;
 
   Future<void> init({CloudflareSourceResolver? sourceResolver}) async {
     _sourceResolver ??= sourceResolver;
-    if (_initialized) return;
+    if (_initialized || _unavailableInIsolate) return;
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
       _initialized = true;
       return;
@@ -112,7 +121,16 @@ class BypassNotificationService {
       }
 
       _initialized = true;
+    } on UnsupportedError catch (e) {
+      // Background isolate: notifications are the root isolate's job.
+      _unavailableInIsolate = true;
+      AppLogger.log(
+        'BypassNotificationService unavailable in this isolate: $e',
+        logLevel: LogLevel.debug,
+        tag: LogTag.network,
+      );
     } catch (e) {
+      _unavailableInIsolate = true;
       AppLogger.log(
         'BypassNotificationService init failed: $e',
         logLevel: LogLevel.warning,
@@ -261,6 +279,9 @@ class BypassNotificationService {
     int id = 9900,
   }) async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
+    // Nothing below can work without the platform channel, and the UI bus is
+    // per-isolate: a worker's publish never reaches the root isolate's panel.
+    if (_unavailableInIsolate) return;
     // The request is already being replayed in a real browser session
     // (browser_fetch.dart): the challenge is about to clear on its own, so
     // alerting the user would be pure noise.

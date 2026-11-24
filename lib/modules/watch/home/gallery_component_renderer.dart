@@ -60,17 +60,26 @@ class GalleryComponentContext {
     return value is String && value.trim().isNotEmpty ? value : null;
   }
 
+  /// Reads an integer layout parameter.
+  ///
+  /// Layout JSON comes from extensions, and a `double.nan`/`double.infinity`
+  /// (a JS `undefined` that was coerced to a number, or a `1e999` literal)
+  /// makes `num.toInt()` throw `Unsupported operation: Infinity or NaN toInt`
+  /// inside `build()`, which surfaces as a FlutterError and blanks the section.
   int? number(String key) {
     final value = params[key];
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value);
+    if (value is num) return value.isFinite ? value.toInt() : null;
+    if (value is String) return int.tryParse(value.trim());
     return null;
   }
 
   double? decimal(String key) {
     final value = params[key];
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
+    if (value is num) return value.isFinite ? value.toDouble() : null;
+    if (value is String) {
+      final parsed = double.tryParse(value.trim());
+      return (parsed?.isFinite ?? false) ? parsed : null;
+    }
     return null;
   }
 

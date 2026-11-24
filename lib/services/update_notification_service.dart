@@ -21,6 +21,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/app_updater/app_update_service.dart'
     if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/services/app_updater/update_models.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -1120,6 +1121,9 @@ class WatchtowerNotificationService {
   /// Vérifie GitHub et envoie une notification si une mise à jour est disponible.
   Future<void> checkForUpdateAndNotify() async {
     if (!_supported) return;
+    // Every launch while offline produced a 15s timeout plus a stack trace in
+    // the log; the update can wait until there is a connection.
+    if (ConnectivityService.instance.isOffline) return;
     // About > Automatic updates owns the update notifications when enabled.
     if (await AppUpdateService.instance.isAutoUpdateEnabled()) return;
     if (!_initialized) await init();

@@ -304,6 +304,29 @@ void main() {
     expect(find.byType(MangaChapterCard), findsNWidgets(2));
   });
 
+  testWidgets('non-finite layout numbers are ignored instead of crashing', (
+    tester,
+  ) async {
+    // A layout shipped by an extension can carry NaN/Infinity (a JS
+    // `undefined` coerced to a number, or `1e999`). `num.toInt()` throws
+    // "Unsupported operation: Infinity or NaN toInt" inside build().
+    final ctx = GalleryComponentContext(
+      componentId: 'manga-chapter',
+      items: _items,
+      params: const {
+        'items': double.nan,
+        'columns': double.infinity,
+        'rows': double.negativeInfinity,
+        'height': double.infinity,
+      },
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.rail(ctx)));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(MangaChapterCard), findsWidgets);
+  });
+
   testWidgets('poster card always uses the shared flag-left poster style', (
     tester,
   ) async {

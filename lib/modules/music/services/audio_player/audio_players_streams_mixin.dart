@@ -45,9 +45,16 @@ mixin SpotubeAudioPlayersStreams on AudioPlayerInterface {
   Stream<int> percentCompletedStream(double percent) {
     return positionStream
         .asyncMap(
-          (position) async => duration == Duration.zero
-              ? 0
-              : (position.inSeconds / duration.inSeconds * 100).toInt(),
+          (position) async {
+            // `inSeconds` is 0 for any track shorter than a second, and
+            // dividing by it yields Infinity — `.toInt()` then throws
+            // "Unsupported operation: Infinity or NaN toInt" from the stream.
+            final totalMs = duration.inMilliseconds;
+            if (totalMs <= 0) return 0;
+            final ratio = position.inMilliseconds / totalMs;
+            if (!ratio.isFinite) return 0;
+            return (ratio * 100).clamp(0, 100).toInt();
+          },
         )
         .where((event) => event >= percent);
   }

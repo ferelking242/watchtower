@@ -254,14 +254,30 @@ class StorageProvider {
     }
   }
 
+  /// Best-effort cleanup of the BitTorrent scratch folder.
+  ///
+  /// `exists()` followed by `delete()` is a TOCTOU race: a torrent worker (or
+  /// the OS reclaimer) can remove the folder between the two calls, and the
+  /// resulting `PathNotFoundException: Deletion failed` used to abort
+  /// `_postLaunchInit`, skipping the auto-backup and the cache trim.
   Future<void> deleteBtDirectory() async {
-    final btDir = Directory(await _btDirectoryPath());
-    if (await btDir.exists()) await btDir.delete(recursive: true);
+    await _deleteDirectoryQuietly(await _btDirectoryPath());
   }
 
   Future<void> deleteTmpDirectory() async {
-    final tmpDir = Directory(await _tempDirectoryPath());
-    if (await tmpDir.exists()) await tmpDir.delete(recursive: true);
+    await _deleteDirectoryQuietly(await _tempDirectoryPath());
+  }
+
+  Future<void> _deleteDirectoryQuietly(String path) async {
+    try {
+      final dir = Directory(path);
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } on FileSystemException {
+      // Already gone (or not removable): the folder is in the state we wanted,
+      // and a scratch folder must never abort the launch sequence.
+    } catch (error) {
+      debugPrint('[StorageProvider] could not delete $path: $error');
+    }
   }
 
   Future<Directory?> getDefaultDirectory() async {

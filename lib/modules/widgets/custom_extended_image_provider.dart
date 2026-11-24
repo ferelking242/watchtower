@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http_client_helper/http_client_helper.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/cache_storage_manager.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -774,6 +775,11 @@ class CustomExtendedNetworkImageProvider
   // Http get with cancel, exponential backoff retry
   Future<StreamedResponse?> _tryGetResponse(Uri resolved) async {
     cancelToken?.throwIfCancellationRequested();
+    // Offline, every cover went through the full retry ladder (two transports
+    // per attempt) and then the browser fallback, per image, per rebuild.
+    if (ConnectivityService.instance.isOffline) {
+      throw StateError('offline');
+    }
 
     int attempt = 0;
     while (attempt < retries) {

@@ -32,8 +32,8 @@ class UniversalImage extends HookWidget {
     if (path.startsWith("http")) {
       return CachedNetworkImageProvider(
         path,
-        maxHeight: height?.toInt(),
-        maxWidth: width?.toInt(),
+        maxHeight: _cachePixels(height),
+        maxWidth: _cachePixels(width),
         cacheKey: path,
         scale: scale,
       );
@@ -45,92 +45,85 @@ class UniversalImage extends HookWidget {
     return MemoryImage(base64Decode(path), scale: scale);
   }
 
+  /// Cache dimensions must be finite positive pixels: callers routinely pass
+  /// `double.infinity` (or a NaN from a bad layout ratio) to mean "fill", and
+  /// `double.toInt()` throws `Unsupported operation: Infinity or NaN toInt`
+  /// inside `build()`, which crashes the widget instead of the image.
+  static int? _cachePixels(double? value) {
+    if (value == null || !value.isFinite || value <= 0) return null;
+    return value.round();
+  }
+
+  /// Same guard for the widget box: an infinite box makes the render object
+  /// assert during layout.
+  static double? _boxPixels(double? value) {
+    if (value == null || !value.isFinite || value <= 0) return null;
+    return value;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (path.startsWith("http")) {
       return FadeInImage(
         image: CachedNetworkImageProvider(
           path,
-          maxHeight: height?.toInt(),
-          maxWidth: width?.toInt(),
+          maxHeight: _cachePixels(height),
+          maxWidth: _cachePixels(width),
           cacheKey: path,
           scale: scale,
         ),
-        height: height,
-        width: width,
+        height: _boxPixels(height),
+        width: _boxPixels(width),
         placeholder: AssetImage(placeholder ?? Assets.images.placeholder.path),
         imageErrorBuilder: (context, error, stackTrace) {
-          return Image.asset(
-            placeholder ?? Assets.images.placeholder.path,
-            width: width,
-            height: height,
-            cacheHeight: height?.toInt(),
-            cacheWidth: width?.toInt(),
-            scale: scale,
-          );
+          return _placeholderWidget();
         },
         fit: fit,
       );
     } else if (Uri.tryParse(path) != null && !path.startsWith("assets")) {
       return Image.file(
         File(path),
-        width: width,
-        height: height,
-        cacheHeight: height?.toInt(),
-        cacheWidth: width?.toInt(),
+        width: _boxPixels(width),
+        height: _boxPixels(height),
+        cacheWidth: _cachePixels(width),
+        cacheHeight: _cachePixels(height),
         scale: scale,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) {
-          return Image.asset(
-            placeholder ?? Assets.images.placeholder.path,
-            width: width,
-            height: height,
-            cacheHeight: height?.toInt(),
-            cacheWidth: width?.toInt(),
-            scale: scale,
-          );
-        },
+        errorBuilder: (context, error, stackTrace) => _placeholderWidget(),
       );
     } else if (path.startsWith("assets")) {
       return Image.asset(
         path,
-        width: width,
-        height: height,
-        cacheHeight: height?.toInt(),
-        cacheWidth: width?.toInt(),
+        width: _boxPixels(width),
+        height: _boxPixels(height),
+        cacheWidth: _cachePixels(width),
+        cacheHeight: _cachePixels(height),
         scale: scale,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) {
-          return Image.asset(
-            placeholder ?? Assets.images.placeholder.path,
-            width: width,
-            height: height,
-            cacheHeight: height?.toInt(),
-            cacheWidth: width?.toInt(),
-            scale: scale,
-          );
-        },
+        errorBuilder: (context, error, stackTrace) => _placeholderWidget(),
       );
     }
 
     return Image.memory(
       base64Decode(path),
-      width: width,
-      height: height,
-      cacheHeight: height?.toInt(),
-      cacheWidth: width?.toInt(),
+      width: _boxPixels(width),
+      height: _boxPixels(height),
+      cacheWidth: _cachePixels(width),
+      cacheHeight: _cachePixels(height),
       scale: scale,
       fit: fit,
-      errorBuilder: (context, error, stackTrace) {
-        return Image.asset(
-          placeholder ?? Assets.images.placeholder.path,
-          width: width,
-          height: height,
-          cacheHeight: height?.toInt(),
-          cacheWidth: width?.toInt(),
-          scale: scale,
-        );
-      },
+      errorBuilder: (context, error, stackTrace) => _placeholderWidget(),
+    );
+  }
+
+  Widget _placeholderWidget() {
+    return Image.asset(
+      placeholder ?? Assets.images.placeholder.path,
+      width: _boxPixels(width),
+      height: _boxPixels(height),
+      cacheWidth: _cachePixels(width),
+      cacheHeight: _cachePixels(height),
+      scale: scale,
     );
   }
 }

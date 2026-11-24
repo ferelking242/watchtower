@@ -754,6 +754,11 @@ class DownloadQueueState extends _$DownloadQueueState {
       // Isar remains the durable source of truth for paused queue items.
     }
 
+    // The queue screen can close while this runs; writing to `state` after the
+    // provider was disposed threw "Cannot use the Ref of
+    // downloadQueueStateProvider after it has been disposed" on every visit.
+    if (!ref.mounted) return;
+
     try {
       final pausedIds = isar.downloads
           .where()
@@ -766,9 +771,11 @@ class DownloadQueueState extends _$DownloadQueueState {
           )
           .map((download) => download.id!)
           .toSet();
+      if (!ref.mounted) return;
       state = state.copyWith(pausedIds: pausedIds);
       _persistPausedIds(pausedIds);
     } catch (error, stackTrace) {
+      if (!ref.mounted) return;
       // If Isar is temporarily unavailable during startup, use the last saved
       // UI snapshot. The database status will reconcile it on the next launch.
       if (savedIds.isNotEmpty) {

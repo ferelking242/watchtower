@@ -101,11 +101,29 @@ Future<MangaDownloadManifest?> _readMangaDownloadManifest(File file) async {
 }
 
 Future<void> _writeMangaDownloadManifest(File file, MangaDownloadManifest manifest) async {
-  await file.parent.create(recursive: true);
   final temporary = File('${file.path}.tmp');
-  await temporary.writeAsString(manifest.encode(), flush: true);
-  if (await file.exists()) await file.delete();
-  await temporary.rename(file.path);
+  try {
+    await file.parent.create(recursive: true);
+    await temporary.writeAsString(manifest.encode(), flush: true);
+    // `rename` replaces the destination atomically. Deleting it first opened a
+    // window in which a second worker (or the OS) removed the file under us and
+    // the delete itself threw PathNotFoundException, which aborted a chapter
+    // that had already downloaded all its pages.
+    await temporary.rename(file.path);
+  } catch (error) {
+    // The sidecar only speeds up a resume; losing it must never fail the
+    // download. Drop a half-written temp file so the next attempt starts clean.
+    try {
+      if (await temporary.exists()) await temporary.delete();
+    } catch (_) {
+      // Nothing left to clean up.
+    }
+    AppLogger.log(
+      '[DL] manifest write skipped: $error',
+      logLevel: LogLevel.debug,
+      tag: LogTag.download,
+    );
+  }
 }
 
 /// Whether re-asking the extension for the page list can plausibly fix this
@@ -3528,6 +3546,10 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   // Per-chapter count of "process died mid-transfer" repairs, so a chapter that
   // kills the app on every attempt ends up failed instead of looping.
   final orphanRepairs = <int, int>{};
+  // Chapters whose legacy isStartDownload flag was already repaired in this
+  // scheduler session. Keeps a long-waiting queue from re-writing (and
+  // re-logging) the same rows on every tick.
+  final restoredPendingIds = <int>{};
   var isFirstTick = true;
   String? lastQueueWaitState;
   // Resume the queue as soon as the connection comes back: reset the rows the
@@ -3746,40 +3768,47 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           // Older pause/resume paths could leave a durable "queued" status with
           // isStartDownload=false. Repair the flags before dispatch so the queue
           // remains recoverable if the app is closed again.
-          if (dl.isStartDownload != true &&
-              _pendingDownloadStatuses.contains(dl.status) &&
-              dl.id != null &&
-              !ActiveDownloadRegistry.isActive(dl.id!)) {
-            var restored = false;
-            var shouldDispatch = false;
-            isar.writeTxnSync(() {
-              final stored = isar.downloads.getSync(dl.id!);
-              if (stored != null &&
-                  stored.isDownload != true &&
-                  _pendingDownloadStatuses.contains(stored.status)) {
-                shouldDispatch = true;
-                if (stored.isStartDownload != true) {
-                  restored = true;
-                  stored
-                    ..isDownload = false
-                    ..isStartDownload = true;
-                  isar.downloads.putSync(stored);
+          //
+          // The repair runs once per row per scheduler session: a row that
+          // waits a long time for a slot used to be re-flagged, re-written and
+          // re-logged on every 900 ms tick, which produced >100k warning lines
+          // per day and one Isar write transaction per queued row per tick.
+          if (dl.id != null && !restoredPendingIds.contains(dl.id!)) {
+            if (dl.isStartDownload != true &&
+                _pendingDownloadStatuses.contains(dl.status) &&
+                !ActiveDownloadRegistry.isActive(dl.id!)) {
+              var restored = false;
+              var shouldDispatch = false;
+              isar.writeTxnSync(() {
+                final stored = isar.downloads.getSync(dl.id!);
+                if (stored != null &&
+                    stored.isDownload != true &&
+                    _pendingDownloadStatuses.contains(stored.status)) {
+                  shouldDispatch = true;
+                  if (stored.isStartDownload != true) {
+                    restored = true;
+                    stored
+                      ..isDownload = false
+                      ..isStartDownload = true;
+                    isar.downloads.putSync(stored);
+                  }
                 }
+              });
+              if (!shouldDispatch) {
+                stalePendingRows.add(dl);
+                continue;
               }
-            });
-            if (!shouldDispatch) {
-              stalePendingRows.add(dl);
-              continue;
-            }
-            dl
-              ..isDownload = false
-              ..isStartDownload = true;
-            if (restored) {
-              AppLogger.log(
-                '[ch:${dl.id}] restored pending state from status=${dl.status}',
-                logLevel: LogLevel.warning,
-                tag: LogTag.download,
-              );
+              dl
+                ..isDownload = false
+                ..isStartDownload = true;
+              if (restored) {
+                restoredPendingIds.add(dl.id!);
+                AppLogger.log(
+                  '[ch:${dl.id}] restored pending state from status=${dl.status}',
+                  logLevel: LogLevel.warning,
+                  tag: LogTag.download,
+                );
+              }
             }
           }
 
