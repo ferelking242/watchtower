@@ -198,6 +198,7 @@ class _LyricsDialogState extends State<LyricsDialog> {
       final path = picked.first;
       if (path.toLowerCase().endsWith('.lrc')) {
         final content = await _readLrcFile(path);
+        if (!mounted) return;
         if (content != null) {
           final lines = _parseLrc(content);
           if (lines.isNotEmpty) {

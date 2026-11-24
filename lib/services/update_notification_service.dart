@@ -445,7 +445,7 @@ class WatchtowerNotificationService {
     if (message == null) return;
     for (var attempt = 0; attempt < 8; attempt++) {
       final context = navigatorKey.currentContext;
-      if (context != null) {
+      if (context != null && context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
@@ -458,7 +458,7 @@ class WatchtowerNotificationService {
   Future<void> _openExtensionNotifications() async {
     for (var attempt = 0; attempt < 8; attempt++) {
       final context = navigatorKey.currentContext;
-      if (context != null) {
+      if (context != null && context.mounted) {
         GoRouter.of(context).push('/notifications');
         return;
       }
@@ -469,7 +469,7 @@ class WatchtowerNotificationService {
   Future<void> _openDownloadQueue() async {
     for (var attempt = 0; attempt < 8; attempt++) {
       final context = navigatorKey.currentContext;
-      if (context != null) {
+      if (context != null && context.mounted) {
         GoRouter.of(context).push('/downloadQueue');
         return;
       }
@@ -665,7 +665,7 @@ class WatchtowerNotificationService {
     };
     for (var attempt = 0; attempt < 8; attempt++) {
       final context = navigatorKey.currentContext;
-      if (context != null) {
+      if (context != null && context.mounted) {
         GoRouter.of(context).push(route, extra: chapterId);
         return;
       }

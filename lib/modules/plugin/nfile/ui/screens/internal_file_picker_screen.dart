@@ -161,7 +161,7 @@ class _InternalFilePickerScreenState extends State<InternalFilePickerScreen> {
       hint: 'Enter folder name',
       actionText: 'Create',
     );
-    if (newFolderName != null && newFolderName.isNotEmpty) {
+    if (newFolderName != null && newFolderName.isNotEmpty && mounted) {
       setState(() => _isLoading = true);
       try {
         final provider = context.read<FileManagerProvider>();

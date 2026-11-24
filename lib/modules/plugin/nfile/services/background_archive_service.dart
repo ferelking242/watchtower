@@ -249,10 +249,21 @@ class BackgroundArchiveService {
       }
     }
 
+    // The user may have left the file manager while the archive was being
+    // written; a dead context here used to throw and leave the progress
+    // notification as the only feedback.
+    if (!context.mounted) {
+      activeOperation.value = null;
+      return;
+    }
     try {
       final provider = Provider.of<FileManagerProvider>(context, listen: false);
       await provider.loadDirectory(provider.currentPath, showLoading: false);
     } catch (_) {}
+    if (!context.mounted) {
+      activeOperation.value = null;
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

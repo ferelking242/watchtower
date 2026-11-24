@@ -136,7 +136,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
           initialName: p.basename(path),
           isMultiSelection: false,
         );
-        if (res != null) {
+        if (res != null && context.mounted) {
           await provider.createArchive(
             archiveName: res.archiveName,
             format: res.format,
@@ -278,7 +278,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
               : currentFolderName,
           isMultiSelection: false,
         );
-        if (res != null) {
+        if (res != null && context.mounted) {
           await provider.createArchive(
             archiveName: res.archiveName,
             format: res.format,
@@ -1192,7 +1192,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                                       const NetworkConnectionWizardScreen(),
                                 ),
                               );
-                              if (added == true) {
+                              if (added == true && context.mounted) {
                                 _showStorageVolumeModal(context, provider);
                               }
                             },
@@ -1273,6 +1273,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                             await NetworkConnectionsService.deleteConnection(
                               conn.id,
                             );
+                            if (!context.mounted) return;
                             Navigator.pop(ctx);
                             _showStorageVolumeModal(context, provider);
                           },

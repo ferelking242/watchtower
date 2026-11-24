@@ -237,6 +237,7 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
         }
       }
 
+      if (!mounted) return;
       final provider = context.read<FileManagerProvider>();
       provider.setClipboard(
         physicalPaths,

@@ -338,18 +338,20 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
       content: 'Are you sure you want to delete ${_selectedPaths.length} selected item(s)? This cannot be undone.',
     );
 
-    if (confirm) {
-      final provider = context.read<FileManagerProvider>();
-      final toDelete = _selectedPaths.toList();
-      for (final path in toDelete) {
-        await provider.deleteFile(path);
-        setState(() {
-          _results.removeWhere((e) => e.path == path);
-        });
-      }
-      _clearSelection();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Successfully deleted items')));
+    if (confirm != true || !mounted) return;
+    final provider = context.read<FileManagerProvider>();
+    final toDelete = _selectedPaths.toList();
+    for (final path in toDelete) {
+      await provider.deleteFile(path);
+      if (!mounted) return;
+      setState(() {
+        _results.removeWhere((e) => e.path == path);
+      });
     }
+    _clearSelection();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Successfully deleted items')),
+    );
   }
 
   void _handleAction(BuildContext context, String action, String path) async {

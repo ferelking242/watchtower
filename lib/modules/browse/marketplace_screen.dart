@@ -819,6 +819,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Install ───────────────────────────────────────────────────────────────────
 
   Future<bool> _install(_ExtEntry entry) async {
+    final l10n = context.l10n;
     if (_busy[entry.id] == true) return false;
     setState(() => _busy[entry.id] = true);
     try {
@@ -869,7 +870,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         }
         if (!installed) {
           throw StateError(
-            context.l10n.marketplace_error_plugin_not_registered(entry.name),
+            l10n.marketplace_error_plugin_not_registered(entry.name),
           );
         }
         await ExtensionCatalogNotifications.dismissById(
@@ -883,7 +884,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         if (mounted) {
           _showToast(
             context,
-            context.l10n.marketplace_installed_toast(entry.name),
+            l10n.marketplace_installed_toast(entry.name),
             icon: Broken.tick_circle,
           );
         }
@@ -915,7 +916,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (mounted) {
         _showToast(
           context,
-          context.l10n.marketplace_installed_toast(entry.name),
+          l10n.marketplace_installed_toast(entry.name),
           icon: Broken.tick_circle,
         );
       }
@@ -924,7 +925,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (mounted) {
         _showToast(
           context,
-          context.l10n.marketplace_error_generic('$e'),
+          l10n.marketplace_error_generic('$e'),
           isError: true,
           icon: Broken.danger,
         );
@@ -985,39 +986,40 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   Future<void> _verifyInstalled(_ExtEntry entry) async {
+    final l10n = context.l10n;
     final source = await isar.sources.get(entry.id);
     source?.hydrateExtendedMetadata();
     if (source == null ||
         source.isAdded != true ||
         (source.sourceCode ?? '').trim().isEmpty) {
       throw StateError(
-        context.l10n.marketplace_error_not_installed(entry.name),
+        l10n.marketplace_error_not_installed(entry.name),
       );
     }
     if (entry.uiLayout?.isNotEmpty == true) {
       if (source.uiLayout != entry.uiLayout ||
           source.uiLayoutVersion != entry.uiLayoutVersion) {
         throw StateError(
-          context.l10n.marketplace_error_layout_not_saved(entry.name),
+          l10n.marketplace_error_layout_not_saved(entry.name),
         );
       }
       await LayoutRegistry.instance.load(source);
       if (!LayoutRegistry.instance.has(source)) {
         throw StateError(
-          context.l10n.marketplace_error_layout_unreadable(entry.name),
+          l10n.marketplace_error_layout_unreadable(entry.name),
         );
       }
     }
     if (entry.subCategories.isNotEmpty &&
         !_sameStrings(source.subCategories, entry.subCategories)) {
       throw StateError(
-        context.l10n.marketplace_error_categories_not_saved(entry.name),
+        l10n.marketplace_error_categories_not_saved(entry.name),
       );
     }
     if (entry.contentSubtype.isNotEmpty &&
         !_sameStrings(source.contentSubtype, entry.contentSubtype)) {
       throw StateError(
-        context.l10n.marketplace_error_content_types_not_saved(entry.name),
+        l10n.marketplace_error_content_types_not_saved(entry.name),
       );
     }
   }
@@ -1057,23 +1059,24 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   // ── Uninstall ─────────────────────────────────────────────────────────────────
 
   Future<void> _uninstall(_ExtEntry entry) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(context.l10n.marketplace_uninstall_title(entry.name)),
-        content: Text(context.l10n.marketplace_uninstall_body),
+        title: Text(l10n.marketplace_uninstall_title(entry.name)),
+        content: Text(l10n.marketplace_uninstall_body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(context.l10n.cancel),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(context.l10n.uninstall),
+            child: Text(l10n.uninstall),
           ),
         ],
       ),
@@ -1084,14 +1087,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (_isMusicPluginEntry(entry)) {
         final plugin = _musicPluginFor(entry);
         if (plugin == null) {
-          throw StateError(context.l10n.marketplace_error_audio_plugin_missing);
+          throw StateError(l10n.marketplace_error_audio_plugin_missing);
         }
         await ref.read(metadataPluginsProvider.notifier).removePlugin(plugin);
         ref.invalidate(metadataPluginsProvider);
       } else {
         final source = await isar.sources.get(entry.id);
         if (source == null) {
-          throw StateError(context.l10n.marketplace_error_extension_missing);
+          throw StateError(l10n.marketplace_error_extension_missing);
         }
         final prefsIds = await isar.sourcePreferences
             .filter()
@@ -1124,7 +1127,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (mounted) {
         _showToast(
           context,
-          context.l10n.marketplace_uninstalled_toast(entry.name),
+          l10n.marketplace_uninstalled_toast(entry.name),
           icon: Broken.trash,
         );
       }
@@ -1132,7 +1135,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (mounted) {
         _showToast(
           context,
-          context.l10n.marketplace_error_uninstall('$e'),
+          l10n.marketplace_error_uninstall('$e'),
           isError: true,
         );
       }

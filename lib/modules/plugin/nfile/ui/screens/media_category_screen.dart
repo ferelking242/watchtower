@@ -446,6 +446,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             filePath,
             newName,
           );
+          if (!mounted) return;
           _clearSelection();
           await context.read<MediaProvider>().loadMedia(forceRefresh: true);
         }
@@ -926,6 +927,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                           filePath,
                           newName,
                         );
+                        if (!mounted) return;
                         context.read<MediaProvider>().loadMedia(
                           forceRefresh: true,
                         );

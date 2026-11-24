@@ -408,7 +408,13 @@ class GetIsolateService {
     // isolate, which owns the browser engine.
     BrowserBridge.connect(isolateData.browserPort);
 
-    await initializeDateFormatting();
+    // `initializeDateFormatting()` with no argument eagerly builds the symbol
+    // tables of every supported locale (80+) in *this* isolate. With up to
+    // four workers that is a multi-megabyte, tens-of-milliseconds cost paid on
+    // every spawn for tables most workers never read. The bridge's date parser
+    // (`MProvider.parseDate`) already initialises an unknown locale on demand
+    // when the first attempt throws, so only the intl default needs to be warm.
+    await initializeDateFormatting('en_US');
 
     // DO NOT open Isar here.  isar_community does not allow two Dart isolates
     // to call Isar.open() with the same database name — even sequentially the

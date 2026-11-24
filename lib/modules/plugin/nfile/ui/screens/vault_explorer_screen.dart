@@ -14,6 +14,7 @@ import 'audio_player/audio_player_screen.dart';
 import 'text_editor_screen.dart';
 import 'internal_file_picker_screen.dart';
 import 'archive_viewer_screen.dart';
+import '../widgets/blocking_progress_dialog.dart';
 
 class VaultExplorerScreen extends StatefulWidget {
   final String password;
@@ -202,26 +203,9 @@ class _VaultExplorerScreenState extends State<VaultExplorerScreen> {
 
     // Proceed to encrypt selected files with progress dialog
     if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 20),
-                Text('Scrambling & Protecting...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              ],
-            ),
-          ),
-        ),
-      ),
+    final closeProgress = showBlockingProgressDialog(
+      context,
+      message: 'Scrambling & Protecting...',
     );
 
     int successCount = 0;
@@ -256,50 +240,43 @@ class _VaultExplorerScreenState extends State<VaultExplorerScreen> {
       }
     }
 
-    Navigator.pop(context); // Dismiss loading dialog
+    closeProgress();
     await _loadVaultData();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Protected $successCount items successfully.${failCount > 0 ? " Failed to lock $failCount items." : ""}',
-          ),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          backgroundColor: Theme.of(context).colorScheme.primary,
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Protected $successCount items successfully.${failCount > 0 ? " Failed to lock $failCount items." : ""}',
         ),
-      );
-    }
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+      ),
+    );
   }
 
   Future<void> _unlockFile(VaultFileRecord record) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
+    final closeProgress = showBlockingProgressDialog(context);
 
     try {
       await VaultService.unlockFile(record: record, password: widget.password);
-      Navigator.pop(context); // Dismiss loader
+      closeProgress();
       await _loadVaultData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Restored "${record.originalName}" to its original location.'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Restored "${record.originalName}" to its original location.'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
     } catch (e) {
-      Navigator.pop(context);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to restore file: $e')),
-        );
-      }
+      closeProgress();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to restore file: $e')),
+      );
     }
   }
 
@@ -349,24 +326,9 @@ class _VaultExplorerScreenState extends State<VaultExplorerScreen> {
   }
 
   Future<void> _previewFile(VaultFileRecord record) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Decrypting securely...', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ),
-      ),
+    final closeProgress = showBlockingProgressDialog(
+      context,
+      message: 'Decrypting securely...',
     );
 
     try {
@@ -374,7 +336,15 @@ class _VaultExplorerScreenState extends State<VaultExplorerScreen> {
         record: record,
         password: widget.password,
       );
-      Navigator.pop(context); // Dismiss loading dialog
+      closeProgress();
+      if (!mounted) {
+        // The preview would open on a dead navigator: drop the decrypted
+        // temporary file instead of leaking it.
+        try {
+          await tempFile.delete();
+        } catch (_) {}
+        return;
+      }
 
       final path = tempFile.path;
 
@@ -417,12 +387,11 @@ class _VaultExplorerScreenState extends State<VaultExplorerScreen> {
         }
       } catch (_) {}
     } catch (e) {
-      Navigator.pop(context); // Dismiss loading dialog
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to decrypt and open item: $e')),
-        );
-      }
+      closeProgress();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to decrypt and open item: $e')),
+      );
     }
   }
 

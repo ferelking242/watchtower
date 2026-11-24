@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/recycle_bin_service.dart';
 import '../../core/utils.dart';
 import '../../core/icon_fonts/broken_icons.dart';
+import '../widgets/blocking_progress_dialog.dart';
 
 class RecycleBinScreen extends StatefulWidget {
   const RecycleBinScreen({super.key});
@@ -25,7 +26,14 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
     _loadItems();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _loadItems() {
+    if (!mounted) return;
     setState(() {
       _allItems = RecycleBinService.getTrashItems();
       _filterItems();
@@ -70,34 +78,27 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
     final itemsToRestore = _allItems.where((item) => _selectedIds.contains(item.id)).toList();
     if (itemsToRestore.isEmpty) return;
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
+    final closeProgress = showBlockingProgressDialog(context);
+    String? error;
     try {
       for (final item in itemsToRestore) {
         await RecycleBinService.restoreItem(item);
       }
-      if (mounted) Navigator.pop(context); // Dismiss loading
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Restored ${itemsToRestore.length} item(s) successfully'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     } catch (e) {
-      if (mounted) Navigator.pop(context); // Dismiss loading
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error restoring items: $e'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      error = '$e';
     }
+    closeProgress();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null
+              ? 'Restored ${itemsToRestore.length} item(s) successfully'
+              : 'Error restoring items: $error',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
 
     _clearSelection();
     _loadItems();
@@ -127,36 +128,29 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || !mounted) return;
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
+    final closeProgress = showBlockingProgressDialog(context);
+    String? error;
     try {
       for (final item in itemsToDelete) {
         await RecycleBinService.deletePermanently(item);
       }
-      if (mounted) Navigator.pop(context); // Dismiss loading
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Permanently deleted ${itemsToDelete.length} item(s)'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     } catch (e) {
-      if (mounted) Navigator.pop(context); // Dismiss loading
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error deleting items: $e'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      error = '$e';
     }
+    closeProgress();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null
+              ? 'Permanently deleted ${itemsToDelete.length} item(s)'
+              : 'Error deleting items: $error',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
 
     _clearSelection();
     _loadItems();
@@ -185,34 +179,27 @@ class _RecycleBinScreenState extends State<RecycleBinScreen> {
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || !mounted) return;
 
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
+    final closeProgress = showBlockingProgressDialog(context);
+    String? error;
     try {
       await RecycleBinService.emptyBin();
-      if (mounted) Navigator.pop(context); // Dismiss loading
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Recycle Bin emptied successfully'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     } catch (e) {
-      if (mounted) Navigator.pop(context); // Dismiss loading
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error emptying bin: $e'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      error = '$e';
     }
+    closeProgress();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null
+              ? 'Recycle Bin emptied successfully'
+              : 'Error emptying bin: $error',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
 
     _clearSelection();
     _loadItems();

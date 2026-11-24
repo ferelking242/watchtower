@@ -2686,7 +2686,7 @@ class FileManagerProvider extends ChangeNotifier {
     activeTab.isLoading = true;
     notifyListeners();
 
-    if (context != null) {
+    if (context != null && context.mounted) {
       selectedPaths.clear();
       final destinationPath = p.join(currentPath, '$archiveName.$format');
       await BackgroundArchiveService.instance.startCompression(
@@ -2905,6 +2905,7 @@ class FileManagerProvider extends ChangeNotifier {
     if (hasNativeViewer(targetPath)) {
       final defaultAction = PreferencesService.getDefaultOpenAction(ext);
       if (defaultAction == 'native') {
+        if (!context.mounted) return;
         await openFileNatively(context, targetPath);
         return;
       } else if (defaultAction == 'external') {
@@ -2934,6 +2935,7 @@ class FileManagerProvider extends ChangeNotifier {
         final selectedType = result.substring('always_'.length);
         await PreferencesService.saveDefaultOpenAction(ext, selectedType);
         if (selectedType == 'native') {
+          if (!context.mounted) return;
           await openFileNatively(context, targetPath);
         } else {
           await OpenFilex.open(targetPath);
@@ -2941,6 +2943,7 @@ class FileManagerProvider extends ChangeNotifier {
       } else if (result.startsWith('just_once_')) {
         final selectedType = result.substring('just_once_'.length);
         if (selectedType == 'native') {
+          if (!context.mounted) return;
           await openFileNatively(context, targetPath);
         } else {
           await OpenFilex.open(targetPath);
@@ -2949,6 +2952,7 @@ class FileManagerProvider extends ChangeNotifier {
       return;
     }
 
+    if (!context.mounted) return;
     await openFileNatively(context, targetPath);
   }
 
@@ -3004,14 +3008,14 @@ class FileManagerProvider extends ChangeNotifier {
         }
       }
       
-      if (showToast) {
+      if (showToast && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Moved $name successfully')),
         );
       }
     } catch (e) {
       debugPrint('Error moving item: $e');
-      if (showToast) {
+      if (showToast && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to move item: $e')),
         );
@@ -3075,14 +3079,14 @@ class FileManagerProvider extends ChangeNotifier {
         }
       }
       
-      if (showToast) {
+      if (showToast && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Copied $name successfully')),
         );
       }
     } catch (e) {
       debugPrint('Error copying item: $e');
-      if (showToast) {
+      if (showToast && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to copy item: $e')),
         );

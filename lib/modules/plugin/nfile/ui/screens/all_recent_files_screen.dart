@@ -106,7 +106,10 @@ class _AllRecentFilesScreenState extends State<AllRecentFilesScreen> {
       } catch (_) {}
     }
 
-    final mediaProvider = context.read<MediaProvider>();
+    // The scan can outlive the screen (it walks all of /storage); the media
+    // provider is only read to enrich the list, so an unmounted State simply
+    // returns what the filesystem walk already found.
+    final mediaProvider = mounted ? context.read<MediaProvider>() : null;
 
     void addFromMediaList(List<FileSystemEntity> mediaList) {
       for (final entity in mediaList) {
@@ -117,12 +120,14 @@ class _AllRecentFilesScreenState extends State<AllRecentFilesScreen> {
       }
     }
 
-    addFromMediaList(mediaProvider.downloads);
-    addFromMediaList(mediaProvider.documents);
-    addFromMediaList(mediaProvider.archives);
-    addFromMediaList(mediaProvider.apks);
+    if (mediaProvider != null) {
+      addFromMediaList(mediaProvider.downloads);
+      addFromMediaList(mediaProvider.documents);
+      addFromMediaList(mediaProvider.archives);
+      addFromMediaList(mediaProvider.apks);
+    }
 
-    for (final song in mediaProvider.audios) {
+    for (final song in mediaProvider?.audios ?? const <dynamic>[]) {
       final path = song.data;
       if (!seen.contains(path)) {
         seen.add(path);
@@ -267,20 +272,20 @@ class _AllRecentFilesScreenState extends State<AllRecentFilesScreen> {
           'Are you sure you want to delete ${_selectedPaths.length} selected item(s)? This cannot be undone.',
     );
 
-    if (confirm) {
-      final provider = context.read<FileManagerProvider>();
-      final toDelete = _selectedPaths.toList();
-      for (final path in toDelete) {
-        await provider.deleteFile(path);
-        setState(() {
-          _recentFiles.removeWhere((e) => e.path == path);
-        });
-      }
-      _clearSelection();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Successfully deleted items')),
-      );
+    if (confirm != true || !mounted) return;
+    final provider = context.read<FileManagerProvider>();
+    final toDelete = _selectedPaths.toList();
+    for (final path in toDelete) {
+      await provider.deleteFile(path);
+      if (!mounted) return;
+      setState(() {
+        _recentFiles.removeWhere((e) => e.path == path);
+      });
     }
+    _clearSelection();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Successfully deleted items')),
+    );
   }
 
   void _handleAction(BuildContext context, String action, String path) async {

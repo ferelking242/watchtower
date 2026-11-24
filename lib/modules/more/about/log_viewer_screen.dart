@@ -475,7 +475,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     try {
       final src = await _findLogFile();
       if (src == null) {
-        botToast(l10nLocalizations(context)!.log_viewer_no_file);
+        if (mounted) botToast(l10nLocalizations(context)!.log_viewer_no_file);
         return;
       }
       final ts = DateTime.now()
@@ -511,6 +511,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       final outFile = File(path.join(target.path, fileName));
       await outFile.writeAsString(content);
 
+      if (!mounted) return;
       botToast(l10nLocalizations(context)!.log_viewer_saved(outFile.path));
 
       if (kIsWeb || !Platform.isAndroid ||
@@ -527,29 +528,33 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         );
       }
     } catch (e) {
-      botToast(l10nLocalizations(context)!.log_viewer_download_error('$e'));
+      if (mounted) {
+        botToast(l10nLocalizations(context)!.log_viewer_download_error('$e'));
+      }
     }
   }
 
   Future<void> _share() async {
     final file = await _findLogFile();
-    if (file != null && context.mounted) {
-      final box = context.findRenderObject() as RenderBox?;
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: path.basename(file.path),
-          sharePositionOrigin:
-              box != null ? box.localToGlobal(Offset.zero) & box.size : null,
-        ),
-      );
-    } else {
+    if (!mounted) return;
+    if (file == null) {
       botToast(l10nLocalizations(context)!.log_viewer_no_file);
+      return;
     }
+    final box = context.findRenderObject() as RenderBox?;
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        text: path.basename(file.path),
+        sharePositionOrigin:
+            box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+      ),
+    );
   }
 
   Future<void> _copyAll() async {
     await Clipboard.setData(ClipboardData(text: _rawContent));
+    if (!mounted) return;
     botToast(l10nLocalizations(context)!.log_viewer_copied);
   }
 

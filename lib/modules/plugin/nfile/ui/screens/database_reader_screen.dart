@@ -204,6 +204,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen>
       );
       await exportFile.writeAsString(buffer.toString());
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -213,6 +214,7 @@ class _DatabaseReaderScreenState extends State<DatabaseReaderScreen>
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Export failed: $e'),

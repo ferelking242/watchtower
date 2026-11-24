@@ -368,6 +368,7 @@ class _NFileAddressBarState extends State<NFileAddressBar> {
     } else {
       final isFile = await File(path).exists();
       if (isFile) {
+        if (!mounted) return;
         provider.openFileNatively(context, path);
       } else {
         // Restructured path check for restricted mode folders

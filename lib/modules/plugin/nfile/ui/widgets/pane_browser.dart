@@ -104,7 +104,7 @@ class _PaneBrowserState extends State<PaneBrowser> {
           initialName: p.basename(path),
           isMultiSelection: false,
         );
-        if (res != null) {
+        if (res != null && context.mounted) {
           await provider.createArchive(
             archiveName: res.archiveName,
             format: res.format,

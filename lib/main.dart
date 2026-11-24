@@ -79,6 +79,7 @@ import 'package:watchtower/modules/media/widgets/bulk_enqueue_controller.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/device_capabilities.dart';
 import 'package:watchtower/ui/widgets/desktop_shortcuts.dart';
+import 'package:watchtower/ui/widgets/friendly_error_view.dart';
 import 'cli/watchtower_cli.dart'
     if (dart.library.js_interop) 'cli/watchtower_cli_stub.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
@@ -269,6 +270,16 @@ void main(List<String> args) async {
         );
       };
 
+      // In release, a widget that throws during build renders as an empty grey
+      // box with no text and no way back — indistinguishable from a frozen
+      // app. Keep the diagnostics in debug and show a readable, escapable view
+      // in production so one broken widget costs one screen.
+      if (kReleaseMode) {
+        ErrorWidget.builder = (FlutterErrorDetails details) => FriendlyErrorView(
+          message: details.exceptionAsString(),
+        );
+      }
+
       // Async errors that escape the Flutter framework (PlatformDispatcher)
       PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
         final msg = error.toString();
@@ -419,24 +430,15 @@ void main(List<String> args) async {
         // iOS frees background-app RAM only after the foreground app becomes
         // visible — deferring past runApp() gives the system time to do that.
       }
-      // Start the background isolate AFTER the DB is open and isar is assigned,
-      // but no longer *before* the first frame. Spawning the pool means up to
-      // four isolate starts, each re-reading intl date data: easily a second of
-      // splash on a mid-range phone. Nothing needs the pool until the first
-      // extension call, and `GetIsolateService.get()` awaits `start()` (now
-      // memoized), so the launch path only has to kick it off.
-      if (!kIsWeb) {
-        unawaited(
-          getIsolateService.start().then((_) {
-            debugPrint(
-              '[startup] extension workers ready '
-              '(${getIsolateService.workerCount})',
-            );
-          }).catchError((Object e) {
-            debugPrint('[startup] extension workers failed: $e');
-          }),
-        );
-      }
+      // The extension worker pool is no longer started here. Spawning up to
+      // four isolates — each with its own QuickJS runtime and a second
+      // RustLib.init — while the first frame is being built is the largest
+      // avoidable CPU/memory spike of the launch, and on a 3–4 GB phone it is
+      // exactly what pushes the process into kswapd thrash (input-dispatch
+      // ANRs a few seconds after start). `GetIsolateService.get()` awaits
+      // `start()`, which is memoized, so the pool is kicked off from the
+      // post-frame callback below and any extension call that comes earlier
+      // simply waits for it.
 
       // Init Hive BEFORE runApp so nav_display providers read persisted values
       // on the very first build instead of falling back to defaults.
@@ -515,6 +517,22 @@ void main(List<String> args) async {
           // colour blocks. Fire-and-forget: it must never delay the splash
           // removal or block the first frame.
           unawaited(prewarmHomeHeroImages().catchError((_) {}));
+          // Spawn the extension workers once the first frame is on screen and
+          // the shell has settled. Starting them any earlier competes with the
+          // launch for CPU and RAM (see the note in main()); starting them here
+          // still means the first extension call finds a warm pool.
+          unawaited(
+            Future<void>.delayed(const Duration(seconds: 2), () {
+              return getIsolateService.start();
+            }).then((_) {
+              debugPrint(
+                '[startup] extension workers ready '
+                '(${getIsolateService.workerCount})',
+              );
+            }).catchError((Object e) {
+              debugPrint('[startup] extension workers failed: $e');
+            }),
+          );
           final remaining =
               const Duration(milliseconds: 600) - splashClock.elapsed;
           Future<void>.delayed(

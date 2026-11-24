@@ -14,10 +14,15 @@ class SelectionContextBottomSheet extends StatelessWidget {
   final FileManagerProvider provider;
   final String targetPath; // The path of the specific item that was long pressed
 
+  /// Context of the screen that opened the sheet: every action pops the sheet
+  /// before running, so [context] is dead by then.
+  final BuildContext hostContext;
+
   const SelectionContextBottomSheet({
     super.key,
     required this.provider,
     required this.targetPath,
+    required this.hostContext,
   });
 
   static Future<void> show(BuildContext context, FileManagerProvider provider, String targetPath) {
@@ -32,6 +37,7 @@ class SelectionContextBottomSheet extends StatelessWidget {
       builder: (context) => SelectionContextBottomSheet(
         provider: provider,
         targetPath: targetPath,
+        hostContext: context,
       ),
     );
   }
@@ -211,12 +217,13 @@ class SelectionContextBottomSheet extends StatelessWidget {
               label: 'Archive (Compress)',
               onTap: () async {
                 Navigator.pop(context);
+                if (!hostContext.mounted) return;
                 final res = await CreateArchiveDialog.show(
-                  context,
+                  hostContext,
                   initialName: p.basename(provider.currentPath).isEmpty ? 'archive' : p.basename(provider.currentPath),
                   isMultiSelection: selectedCount > 1,
                 );
-                if (res != null) {
+                if (res != null && hostContext.mounted) {
                   await provider.createArchive(
                     archiveName: res.archiveName,
                     format: res.format,
@@ -226,7 +233,7 @@ class SelectionContextBottomSheet extends StatelessWidget {
                     deleteSource: res.deleteSource,
                     separateArchives: res.separateArchives,
                     targetPaths: provider.selectedPaths.toList(),
-                    context: context,
+                    context: hostContext,
                   );
                   provider.clearSelection();
                 }

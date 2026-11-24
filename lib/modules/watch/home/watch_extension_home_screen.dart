@@ -138,6 +138,7 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
   }
 
   Future<void> _loadLayoutOnce() async {
+    final l10n = context.l10n;
     try {
       await LayoutRegistry.instance.load(source);
       if (source.providesHome && !LayoutRegistry.instance.has(source)) {
@@ -157,12 +158,12 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
             home['sections'] = [
               <String, dynamic>{
                 'id': 'popular',
-                'title': context.l10n.popular,
+                'title': l10n.popular,
                 'component': 'grid',
               },
               <String, dynamic>{
                 'id': 'latest',
-                'title': context.l10n.latest,
+                'title': l10n.latest,
                 'component': 'grid',
               },
             ];
@@ -240,6 +241,7 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
         .map((section) => Map<String, dynamic>.from(section))
         .toList(growable: false);
     updated['home'] = home;
+    final l10n = context.l10n;
     bool saved;
     try {
       saved = await LayoutRegistry.instance.save(
@@ -247,11 +249,11 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
         const JsonEncoder.withIndent('  ').convert(updated),
       );
     } catch (error) {
-      _showEditorMessage(context.l10n.watch_home_layout_save_failed('$error'));
+      _showEditorMessage(l10n.watch_home_layout_save_failed('$error'));
       return false;
     }
     if (!saved) {
-      _showEditorMessage(context.l10n.watch_home_layout_not_saved);
+      _showEditorMessage(l10n.watch_home_layout_not_saved);
       return false;
     }
     if (!mounted) return false;

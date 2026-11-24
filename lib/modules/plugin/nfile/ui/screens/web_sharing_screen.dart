@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/icon_fonts/broken_icons.dart';
 import '../../providers/file_manager_provider.dart';
 import '../../services/web_sharing_service.dart';
+import '../widgets/blocking_progress_dialog.dart';
 import 'dart:math' as math;
 
 class WebSharingScreen extends StatefulWidget {
@@ -58,6 +59,7 @@ class _WebSharingScreenState extends State<WebSharingScreen> with SingleTickerPr
   Future<void> _toggleLocalServer(String rootPath) async {
     if (_webService.isLocalActive) {
       await _webService.stopLocalServer();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Local HTTP Sharing Server stopped.'),
@@ -68,6 +70,7 @@ class _WebSharingScreenState extends State<WebSharingScreen> with SingleTickerPr
       try {
         await Permission.notification.request();
         await _webService.startLocalServer(rootPath);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Local HTTP Sharing Server started! URL: ${_webService.localServerUrl}'),
@@ -76,6 +79,7 @@ class _WebSharingScreenState extends State<WebSharingScreen> with SingleTickerPr
           ),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error starting HTTP Server: $e'),
@@ -97,34 +101,19 @@ class _WebSharingScreenState extends State<WebSharingScreen> with SingleTickerPr
         ),
       );
     } else {
-      // Simulate connection latency
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return const AlertDialog(
-            content: Row(
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 20),
-                Expanded(
-                  child: Text(
-                    'Establishing secure proxy relay...',
-                    style: TextStyle(fontFamily: 'LexendDeca', fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+      // The dialog is owned by this call, so it is closed on the exact route
+      // that opened it even if the screen was replaced in the meantime.
+      final closeProgress = showBlockingProgressDialog(
+        context,
+        message: 'Establishing secure proxy relay...',
       );
 
       Future.delayed(const Duration(milliseconds: 1400), () async {
-        if (!mounted) return;
-        Navigator.pop(context); // Pop dialog
         try {
           await Permission.notification.request();
           await _webService.startInternetTunnel(shareDir);
+          closeProgress();
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Internet cloud tunnel online! Temporary link active.'),
@@ -133,6 +122,8 @@ class _WebSharingScreenState extends State<WebSharingScreen> with SingleTickerPr
             ),
           );
         } catch (e) {
+          closeProgress();
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to start Cloud Share: $e'),

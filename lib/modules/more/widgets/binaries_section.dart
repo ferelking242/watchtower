@@ -183,9 +183,10 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
 
     Future<void> _downloadTool(_ToolDef tool) async {
       if (_progress.containsKey(tool.name)) return;
+      final l10n = context.l10n;
       setState(() {
         _progress[tool.name] = 0;
-        _progressLabel[tool.name] = context.l10n.binary_connecting;
+        _progressLabel[tool.name] = l10n.binary_connecting;
         _statusMsg.remove(tool.name);
         _statusKind.remove(tool.name);
       });
@@ -209,13 +210,13 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
           final res = await client.send(req).timeout(const Duration(seconds: 30));
           if (res.statusCode >= 300 && res.statusCode < 400) {
             final loc = res.headers['location'];
-            if (loc == null) throw context.l10n.binary_redirect_no_location;
+            if (loc == null) throw l10n.binary_redirect_no_location;
             await res.stream.drain<void>();
             uri = uri.resolve(loc);
             continue;
           }
           if (res.statusCode != 200) {
-            throw context.l10n.binary_http_status('${res.statusCode}');
+            throw l10n.binary_http_status('${res.statusCode}');
           }
 
           final total = res.contentLength ?? 0;
@@ -237,13 +238,13 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         }
 
         if (!await tmpFile.exists() || await tmpFile.length() == 0) {
-          throw context.l10n.binary_empty_download;
+          throw l10n.binary_empty_download;
         }
 
         if (isZip) {
           if (mounted) {
             setState(
-              () => _progressLabel[tool.name] = context.l10n.binary_extracting,
+              () => _progressLabel[tool.name] = l10n.binary_extracting,
             );
           }
           try {
@@ -252,7 +253,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
             for (final f in archive) {
               if (f.isFile && (best == null || f.size > best.size)) best = f;
             }
-            if (best == null) throw context.l10n.binary_empty_zip;
+            if (best == null) throw l10n.binary_empty_zip;
             await dstFile.writeAsBytes(best.content as List<int>, flush: true);
           } finally {
             await tmpFile.delete().catchError((_) {});
@@ -263,7 +264,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         }
 
         if (!await dstFile.exists() || await dstFile.length() == 0) {
-          throw context.l10n.binary_invalid_install;
+          throw l10n.binary_invalid_install;
         }
         try { await Process.run('chmod', ['+x', dstFile.path]); } catch (_) {}
 
@@ -274,7 +275,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         setState(() {
           _progress.remove(tool.name);
           _progressLabel.remove(tool.name);
-          _statusMsg[tool.name] = '${context.l10n.binary_installed_ok}  ($sz)';
+          _statusMsg[tool.name] = '${l10n.binary_installed_ok}  ($sz)';
           _statusKind[tool.name] = _BinStatusKind.success;
           _sizes[tool.name] = sz;
         });
@@ -284,7 +285,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         setState(() {
           _progress.remove(tool.name);
           _progressLabel.remove(tool.name);
-          _statusMsg[tool.name] = context.l10n.binary_error('$e');
+          _statusMsg[tool.name] = l10n.binary_error('$e');
           _statusKind[tool.name] = _BinStatusKind.error;
         });
       } finally {

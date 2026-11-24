@@ -49,6 +49,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
 
       try {
         await _ftpService.start();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('FTP Server started at ftp://${_ftpService.ipAddress}:${_ftpService.port}'),
@@ -57,6 +58,7 @@ class _FtpServerScreenState extends State<FtpServerScreen> {
           ),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error starting FTP Server: $e'),
