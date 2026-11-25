@@ -10082,7 +10082,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remote_server_title => 'Remote server';
 
   @override
-  String get remote_public_link => 'Public link (SSH tunnel)';
+  String get remote_public_link => 'Public link';
+
+  @override
+  String get remote_expose_nsfw => 'Expose NSFW sources over the API';
+
+  @override
+  String get remote_expose_nsfw_hint =>
+      'Off by default. Only enable it for your own clients (Reel) — the API key is still required.';
+
+  @override
+  String remote_tunnel_provider(Object provider) {
+    return 'Tunnel: $provider';
+  }
+
+  @override
+  String get remote_tunnel_retry => 'Retry';
+
+  @override
+  String get remote_downloading_tunnel => 'Downloading the tunnel binary…';
+
+  @override
+  String get remote_custom_url => 'Custom public URL (optional)';
+
+  @override
+  String get remote_custom_url_hint =>
+      'e.g. https://watchtower.example.com — a reverse proxy pointing to this server';
+
+  @override
+  String get remote_custom_url_save => 'Save';
+
+  @override
+  String get remote_custom_url_saved => 'Public URL saved';
+
+  @override
+  String get remote_custom_url_clear => 'Clear';
+
+  @override
+  String get remote_tunnel_local_hint =>
+      'Same-network link — works without any tunnel';
 
   @override
   String get remote_paste_in_web => 'Paste this link into the web version';
@@ -10091,7 +10129,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remote_tunnel_starting => 'Tunnel is starting…';
 
   @override
-  String get remote_tunnel_ssh_hint => 'SSH connection — about 5 seconds';
+  String get remote_tunnel_ssh_hint => 'Opening the tunnel — a few seconds';
 
   @override
   String get remote_local_link => 'Local link (same Wi-Fi network)';
@@ -10105,7 +10143,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remote_api_key_hint =>
-      'Add it as ?key=... or as an Authorization: Bearer header on every /api call';
+      'Sent as X-Api-Key, Authorization: Bearer or ?key=… on every /api call';
 
   @override
   String get remote_copy => 'Copy';
@@ -10131,7 +10169,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remote_how_it_works_body =>
-      'When Remote Mode is on, your device becomes a server. A public link is created automatically through an SSH tunnel (localhost.run) — reachable from anywhere, with no download and no network setup.\n\nThe web version of Watchtower can then connect to this link to use all your installed extensions and sources.';
+      'While Remote Mode is on, this device becomes the server. A public HTTPS link is created automatically (Cloudflare quick tunnel, falling back to an SSH tunnel) — reachable from anywhere, with no account and no router setup.\n\nThe Watchtower web version can then connect to that link and use all your installed extensions and sources.';
 
   @override
   String get remote_tunnel_unavailable => 'Tunnel unavailable';

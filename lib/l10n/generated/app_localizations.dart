@@ -17930,8 +17930,74 @@ abstract class AppLocalizations {
   /// No description provided for @remote_public_link.
   ///
   /// In en, this message translates to:
-  /// **'Public link (SSH tunnel)'**
+  /// **'Public link'**
   String get remote_public_link;
+
+  /// No description provided for @remote_expose_nsfw.
+  ///
+  /// In en, this message translates to:
+  /// **'Expose NSFW sources over the API'**
+  String get remote_expose_nsfw;
+
+  /// No description provided for @remote_expose_nsfw_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Off by default. Only enable it for your own clients (Reel) — the API key is still required.'**
+  String get remote_expose_nsfw_hint;
+
+  /// No description provided for @remote_tunnel_provider.
+  ///
+  /// In en, this message translates to:
+  /// **'Tunnel: {provider}'**
+  String remote_tunnel_provider(Object provider);
+
+  /// No description provided for @remote_tunnel_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get remote_tunnel_retry;
+
+  /// No description provided for @remote_downloading_tunnel.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading the tunnel binary…'**
+  String get remote_downloading_tunnel;
+
+  /// No description provided for @remote_custom_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom public URL (optional)'**
+  String get remote_custom_url;
+
+  /// No description provided for @remote_custom_url_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. https://watchtower.example.com — a reverse proxy pointing to this server'**
+  String get remote_custom_url_hint;
+
+  /// No description provided for @remote_custom_url_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get remote_custom_url_save;
+
+  /// No description provided for @remote_custom_url_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Public URL saved'**
+  String get remote_custom_url_saved;
+
+  /// No description provided for @remote_custom_url_clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get remote_custom_url_clear;
+
+  /// No description provided for @remote_tunnel_local_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Same-network link — works without any tunnel'**
+  String get remote_tunnel_local_hint;
 
   /// No description provided for @remote_paste_in_web.
   ///
@@ -17948,7 +18014,7 @@ abstract class AppLocalizations {
   /// No description provided for @remote_tunnel_ssh_hint.
   ///
   /// In en, this message translates to:
-  /// **'SSH connection — about 5 seconds'**
+  /// **'Opening the tunnel — a few seconds'**
   String get remote_tunnel_ssh_hint;
 
   /// No description provided for @remote_local_link.
@@ -17972,7 +18038,7 @@ abstract class AppLocalizations {
   /// No description provided for @remote_api_key_hint.
   ///
   /// In en, this message translates to:
-  /// **'Add it as ?key=... or as an Authorization: Bearer header on every /api call'**
+  /// **'Sent as X-Api-Key, Authorization: Bearer or ?key=… on every /api call'**
   String get remote_api_key_hint;
 
   /// No description provided for @remote_copy.
@@ -18020,7 +18086,7 @@ abstract class AppLocalizations {
   /// No description provided for @remote_how_it_works_body.
   ///
   /// In en, this message translates to:
-  /// **'When Remote Mode is on, your device becomes a server. A public link is created automatically through an SSH tunnel (localhost.run) — reachable from anywhere, with no download and no network setup.\n\nThe web version of Watchtower can then connect to this link to use all your installed extensions and sources.'**
+  /// **'While Remote Mode is on, this device becomes the server. A public HTTPS link is created automatically (Cloudflare quick tunnel, falling back to an SSH tunnel) — reachable from anywhere, with no account and no router setup.\n\nThe Watchtower web version can then connect to that link and use all your installed extensions and sources.'**
   String get remote_how_it_works_body;
 
   /// No description provided for @remote_tunnel_unavailable.

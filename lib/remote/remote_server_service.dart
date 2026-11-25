@@ -4,6 +4,7 @@ import 'dart:async';
   import 'dart:math';
   import 'package:flutter/foundation.dart';
   import 'package:hive/hive.dart';
+  import 'package:package_info_plus/package_info_plus.dart';
   import 'package:shelf/shelf.dart';
   import 'package:shelf/shelf_io.dart' as shelf_io;
   import 'package:shelf_router/shelf_router.dart';
@@ -14,7 +15,67 @@ import 'dart:async';
   void _slog(String msg) => AppLogger.log('[SERVER] $msg', tag: 'REMOTE');
   void _slogErr(String msg) => AppLogger.log('[SERVER] $msg', tag: 'REMOTE', logLevel: LogLevel.error);
 
-  class RemoteServerService {
+  /// Reads the API key presented by a request.
+  ///
+  /// `X-Api-Key` is what the official Dart SDK sends, `Authorization: Bearer`
+  /// is used by the web client and `?key=` by browsers loading an image
+  /// directly (`<img src="…?key=…">`).
+  String? apiKeyFromRequest(Request req) {
+    final auth = req.headers['authorization'];
+    final bearer = (auth != null && auth.startsWith('Bearer '))
+        ? auth.substring(7).trim()
+        : null;
+    final query = req.url.queryParameters;
+    return req.headers['x-api-key']?.trim() ??
+        bearer ??
+        query['key'] ??
+        query['api_key'] ??
+        query['apikey'];
+  }
+
+  /// Headers sent with every response, preflight included.
+  const remoteCorsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    // `X-Api-Key` is what the official Dart SDK sends; browsers refuse the
+    // request unless the preflight advertises it.
+    'Access-Control-Allow-Headers':
+        'Content-Type, Authorization, X-Api-Key, X-Api-Version, Accept',
+    'Access-Control-Max-Age': '86400',
+  };
+
+  Response corsify(Response response) =>
+      response.change(headers: remoteCorsHeaders);
+
+  /// Rejects `/api/*` requests that do not carry [currentKey].
+  ///
+  /// `/api/ping` and the HTML home page stay public so a client can check
+  /// the server is up before it knows the key.
+  Middleware apiKeyMiddleware(String? Function() currentKey) {
+    Response unauthorized() => Response(
+          401,
+          body: jsonEncode({'error': 'Missing or invalid API key'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+
+    return (Handler inner) => (Request req) async {
+          // Browsers send the preflight without the key: answer it first.
+          if (req.method == 'OPTIONS') {
+            return Response.ok('', headers: remoteCorsHeaders);
+          }
+          final path = req.url.path;
+          if (!path.startsWith('api/') || path == 'api/ping') {
+            return inner(req);
+          }
+          final key = apiKeyFromRequest(req);
+          if (key == null || key != currentKey()) {
+            return corsify(unauthorized());
+          }
+          return inner(req);
+        };
+  }
+
+class RemoteServerService {
     RemoteServerService._();
     static final RemoteServerService instance = RemoteServerService._();
 
@@ -23,6 +84,8 @@ import 'dart:async';
     bool _running = false;
     String? _localUrl;
     String? _tunnelUrl;
+    String? _tunnelProvider;
+    String? _publicUrl;
     String? _tunnelError;
     double? _downloadProgress;
     String? _apiKey;
@@ -30,6 +93,7 @@ import 'dart:async';
     bool get isRunning => _running;
     String? get localUrl => _localUrl;
     String? get tunnelUrl => _tunnelUrl;
+    String? get tunnelProvider => _tunnelProvider;
     String? get tunnelError => _tunnelError;
     double? get downloadProgress => _downloadProgress;
     String? get apiKey => _apiKey;
@@ -41,6 +105,52 @@ import 'dart:async';
     // be wide open. Persisted so it survives toggling the server off/on.
     static const _kBox = 'remote_mode';
     static const _kApiKey = 'api_key';
+    static const _kPublicUrl = 'public_url';
+    static const _kExposeNsfw = 'expose_nsfw';
+
+    RemoteApiHandler? _handler;
+    bool _exposeNsfw = false;
+
+    /// When true, NSFW sources are served by the HTTP API (the request still
+    /// needs the API key). Mirrors the switch in the Mode Distant screen.
+    bool get exposeNsfw => _exposeNsfw;
+
+    Future<void> setExposeNsfw(bool value) async {
+      _exposeNsfw = value;
+      _handler?.allowNsfw = value;
+      final box = await Hive.openBox(_kBox);
+      await box.put(_kExposeNsfw, value);
+      _notify();
+    }
+
+    Future<bool> loadExposeNsfw() async {
+      final box = await Hive.openBox(_kBox);
+      return (box.get(_kExposeNsfw) as bool?) ?? false;
+    }
+
+    /// Optional public URL (own domain, VPS reverse proxy). When set, the
+    /// automatic tunnels are skipped.
+    Future<String?> loadPublicUrl() async {
+      final box = await Hive.openBox(_kBox);
+      final url = box.get(_kPublicUrl) as String?;
+      return (url == null || url.isEmpty) ? null : url;
+    }
+
+    Future<void> setPublicUrl(String? url) async {
+      final box = await Hive.openBox(_kBox);
+      final clean = url?.trim();
+      if (clean == null || clean.isEmpty) {
+        await box.delete(_kPublicUrl);
+      } else {
+        await box.put(_kPublicUrl, clean);
+      }
+      _publicUrl = (clean == null || clean.isEmpty) ? null : clean;
+      final tunnel = _tunnel;
+      if (tunnel != null) {
+        tunnel.customUrl = _publicUrl;
+        await tunnel.restart();
+      }
+    }
 
     Future<String> _loadOrCreateApiKey() async {
       final box = await Hive.openBox(_kBox);
@@ -159,6 +269,21 @@ import 'dart:async';
   </body>
   </html>''';
 
+    String _providerLabel(String? provider) {
+      switch (provider) {
+        case 'cloudflared':
+          return 'Cloudflare';
+        case 'ssh':
+          return 'SSH localhost.run';
+        case 'serveo':
+          return 'SSH serveo.net';
+        case 'custom':
+          return 'personnalisé';
+        default:
+          return 'HTTPS';
+      }
+    }
+
     String _buildHomePage() {
       final lan = _localUrl ?? '?';
 
@@ -167,7 +292,7 @@ import 'dart:async';
         final url = _tunnelUrl!;
         tunnelSection =
             '<div class="card green">'
-            '<div class="label">Lien public (relay Replit)</div>'
+            '<div class="label">Lien public (${_providerLabel(_tunnelProvider)})</div>'
             '<a href="' + url + '" class="url-text">' + url + '</a>'
             '<div class="hint">Utilisez ce lien depuis n&apos;importe ou</div>'
             '</div>';
@@ -180,8 +305,8 @@ import 'dart:async';
       } else {
         tunnelSection =
             '<div class="card yellow">'
-            '<div class="label">Relay Replit</div>'
-            '<div class="hint">Demarrage en cours...</div>'
+            '<div class="label">Tunnel public</div>'
+            '<div class="hint">Ouverture du tunnel en cours...</div>'
             '<div class="spinner"></div>'
             '</div>';
       }
@@ -196,48 +321,33 @@ import 'dart:async';
       if (_running) return;
 
       _slog('Demarrage HTTP port 4567...');
+      await _resolveAppVersion();
       _apiKey = await _loadOrCreateApiKey();
+      _handler = handler;
+      _exposeNsfw = await loadExposeNsfw();
+      handler.allowNsfw = _exposeNsfw;
       final router = Router();
 
-      Response cors(Response r) => r.change(headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      });
-      Response optionsH(Request r) => Response.ok('', headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      });
-
-      // Every /api/* route (besides /api/ping) requires the API key shown
-      // in the Mode Distant screen, passed as `?key=` or a Bearer token.
-      Middleware requireApiKey() => (Handler inner) => (Request req) async {
-            // CORS preflight requests do not carry the Authorization value.
-            // Answer them before enforcing the API key.
-            if (req.method == 'OPTIONS') return optionsH(req);
-            final path = req.url.path;
-            if (!path.startsWith('api/') || path == 'api/ping') {
-              return inner(req);
-            }
-            final auth = req.headers['authorization'];
-            final headerKey = (auth != null && auth.startsWith('Bearer '))
-                ? auth.substring(7)
-                : null;
-            final key = req.url.queryParameters['key'] ?? headerKey;
-            if (key == null || key != _apiKey) {
-              return cors(_unauthorized());
-            }
-            return inner(req);
-          };
+      Response cors(Response r) => corsify(r);
+      Response optionsH(Request r) =>
+          Response.ok('', headers: remoteCorsHeaders);
 
       router.get('/', (Request req) async =>
           cors(Response.ok(_buildHomePage(),
               headers: {'Content-Type': 'text/html; charset=utf-8'})));
 
-      router.get('/api/ping', (_) async =>
-          cors(Response.ok(jsonEncode({'ok': true, 'app': 'Watchtower'}),
-              headers: {'Content-Type': 'application/json'})));
+      // `status` and `version` are what the Dart SDK (`WatchtowerClient.ping`)
+      // and Reel read; `ok`/`app` are kept for the web client.
+      router.get('/api/ping', (_) async => cors(Response.ok(
+            jsonEncode({
+              'ok': true,
+              'status': 'ok',
+              'app': 'Watchtower',
+              'version': _appVersion,
+              'api': 1,
+            }),
+            headers: {'Content-Type': 'application/json'},
+          )));
       router.get('/api/sources', (Request req) async => cors(await handler.getSources(req)));
       router.get('/api/sources/<sourceId>/popular', (Request req, String sourceId) async =>
           cors(await handler.getPopular(req, sourceId)));
@@ -279,20 +389,25 @@ import 'dart:async';
       router.add('OPTIONS', '/<path|.*>', optionsH);
 
       final pipeline = const Pipeline()
-          .addMiddleware(requireApiKey())
+          .addMiddleware(apiKeyMiddleware(() => _apiKey))
           .addHandler(router.call);
       _server = await shelf_io.serve(pipeline, InternetAddress.anyIPv4, 4567);
       _localUrl = 'http://' + (await _getLanIp()) + ':4567';
       _running = true;
       _tunnelError = null;
+      _tunnelProvider = null;
       _downloadProgress = null;
+      _publicUrl = await loadPublicUrl();
       _slog('Serveur actif sur $_localUrl');
       _notify();
 
-      _tunnel = TunnelService();
-      _tunnel!.onUrlChanged = (url) {
-        _slog('Tunnel URL : $url');
+      final publicUrl = _publicUrl;
+      _tunnel = TunnelService(customUrl: publicUrl);
+      _tunnel!.onUrlChanged = (url, provider) {
+        _slog('Tunnel URL ($provider) : $url');
         _tunnelUrl = url;
+        _tunnelProvider = provider;
+        _tunnelError = null;
         _downloadProgress = null;
         _notify();
       };
@@ -309,11 +424,14 @@ import 'dart:async';
       await _tunnel!.start();
     }
 
-    Response _unauthorized() => Response(
-          401,
-          body: jsonEncode({'error': 'Missing or invalid API key'}),
-          headers: {'Content-Type': 'application/json'},
-        );
+    String _appVersion = '?';
+
+    Future<void> _resolveAppVersion() async {
+      try {
+        final info = await PackageInfo.fromPlatform();
+        _appVersion = info.version;
+      } catch (_) {}
+    }
 
     Future<String> _getLanIp() async {
       try {
@@ -338,12 +456,24 @@ import 'dart:async';
         await (_server as dynamic).close(force: true);
       }
       _server = null;
+      _handler = null;
       _running = false;
       _localUrl = null;
       _tunnelUrl = null;
+      _tunnelProvider = null;
       _tunnelError = null;
       _downloadProgress = null;
       _notify();
+    }
+
+    /// Re-opens the public tunnel (new URL) without touching the HTTP server.
+    Future<void> restartTunnel() async {
+      if (!_running) return;
+      _tunnelUrl = null;
+      _tunnelProvider = null;
+      _tunnelError = null;
+      _notify();
+      await _tunnel?.restart();
     }
   }
   

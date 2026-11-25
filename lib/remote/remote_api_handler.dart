@@ -34,9 +34,10 @@ Response _error(String msg, {int status = 500}) =>
 class RemoteApiHandler {
   final ProviderContainer ref;
 
-  /// `true` for in-process callers (the Reel shell). The network API keeps the
-  /// default `false`: NSFW sources are never listed nor served over HTTP.
-  final bool allowNsfw;
+  /// `true` for in-process callers (the Reel shell) and for the network API
+  /// once the user opted in from Mode Distant ("Exposer les sources NSFW").
+  /// Default `false`: NSFW sources stay hidden and unservable.
+  bool allowNsfw;
 
   RemoteApiHandler(this.ref, {this.allowNsfw = false});
 
@@ -54,11 +55,20 @@ class RemoteApiHandler {
 
   Future<Response> getSources(Request req) async {
     try {
-      final query = isar.sources.filter().isActiveEqualTo(true).isAddedEqualTo(true);
+      final base = isar.sources.filter().isActiveEqualTo(true).isAddedEqualTo(true);
       final sources = allowNsfw
-          ? query.findAllSync()
-          : query.isNsfwEqualTo(false).findAllSync();
-      return _json({'sources': sources.map(_sourceToMap).toList()});
+          ? base.findAllSync()
+          : base.isNsfwEqualTo(false).findAllSync();
+      // Tell clients *why* the list can be empty instead of letting them show
+      // an empty feed: only the count leaks, never the sources themselves.
+      var hiddenNsfw = 0;
+      if (!allowNsfw) {
+        hiddenNsfw = base.findAllSync().where((s) => s.isNsfw == true).length;
+      }
+      return _json({
+        'sources': sources.map(_sourceToMap).toList(),
+        'hiddenNsfw': hiddenNsfw,
+      });
     } catch (e) { return _error(e.toString()); }
   }
 

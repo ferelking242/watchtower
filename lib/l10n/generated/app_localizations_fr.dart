@@ -10211,7 +10211,46 @@ class AppLocalizationsFr extends AppLocalizations {
   String get remote_server_title => 'Serveur Distant';
 
   @override
-  String get remote_public_link => 'Lien public (tunnel SSH)';
+  String get remote_public_link => 'Lien public';
+
+  @override
+  String get remote_expose_nsfw => 'Exposer les sources NSFW via l’API';
+
+  @override
+  String get remote_expose_nsfw_hint =>
+      'Désactivé par défaut. À activer seulement pour tes propres clients (Reel) — la clé API reste obligatoire.';
+
+  @override
+  String remote_tunnel_provider(Object provider) {
+    return 'Tunnel : $provider';
+  }
+
+  @override
+  String get remote_tunnel_retry => 'Réessayer';
+
+  @override
+  String get remote_downloading_tunnel =>
+      'Téléchargement du binaire du tunnel…';
+
+  @override
+  String get remote_custom_url => 'URL publique personnalisée (optionnel)';
+
+  @override
+  String get remote_custom_url_hint =>
+      'Ex. https://watchtower.mondomaine.fr — un reverse proxy vers ce serveur';
+
+  @override
+  String get remote_custom_url_save => 'Enregistrer';
+
+  @override
+  String get remote_custom_url_saved => 'URL publique enregistrée';
+
+  @override
+  String get remote_custom_url_clear => 'Effacer';
+
+  @override
+  String get remote_tunnel_local_hint =>
+      'Lien même réseau — fonctionne sans tunnel';
 
   @override
   String get remote_paste_in_web => 'Coller ce lien dans la version web';
@@ -10220,7 +10259,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get remote_tunnel_starting => 'Tunnel en cours de démarrage...';
 
   @override
-  String get remote_tunnel_ssh_hint => 'Connexion SSH — environ 5 secondes';
+  String get remote_tunnel_ssh_hint =>
+      'Ouverture du tunnel — quelques secondes';
 
   @override
   String get remote_local_link => 'Lien local (même réseau Wi-Fi)';
@@ -10234,7 +10274,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get remote_api_key_hint =>
-      'À ajouter en ?key=... ou en en-tête Authorization: Bearer sur chaque appel /api';
+      'Envoyée en en-tête X-Api-Key, Authorization: Bearer ou ?key=… sur chaque appel /api';
 
   @override
   String get remote_copy => 'Copier';
@@ -10260,7 +10300,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get remote_how_it_works_body =>
-      'Quand le Mode Distant est actif, votre appareil devient un serveur. Un lien public est créé automatiquement via un tunnel SSH (localhost.run) — accessible depuis n’importe où, sans téléchargement ni configuration réseau.\n\nLa version web de Watchtower peut ensuite se connecter à ce lien pour utiliser toutes vos extensions et sources installées.';
+      'Quand le Mode Distant est actif, votre appareil devient un serveur. Un lien public HTTPS est créé automatiquement (tunnel Cloudflare, avec repli sur un tunnel SSH) — accessible depuis n’importe où, sans compte ni configuration réseau.\n\nLa version web de Watchtower peut ensuite se connecter à ce lien pour utiliser toutes vos extensions et sources installées.';
 
   @override
   String get remote_tunnel_unavailable => 'Tunnel indisponible';

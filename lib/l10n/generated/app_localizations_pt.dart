@@ -10112,6 +10112,44 @@ class AppLocalizationsPt extends AppLocalizations {
   String get remote_public_link => 'Public link (SSH tunnel)';
 
   @override
+  String get remote_expose_nsfw => 'Expose NSFW sources over the API';
+
+  @override
+  String get remote_expose_nsfw_hint =>
+      'Off by default. Only enable it for your own clients (Reel) — the API key is still required.';
+
+  @override
+  String remote_tunnel_provider(Object provider) {
+    return 'Tunnel: $provider';
+  }
+
+  @override
+  String get remote_tunnel_retry => 'Retry';
+
+  @override
+  String get remote_downloading_tunnel => 'Downloading the tunnel binary…';
+
+  @override
+  String get remote_custom_url => 'Custom public URL (optional)';
+
+  @override
+  String get remote_custom_url_hint =>
+      'e.g. https://watchtower.example.com — a reverse proxy pointing to this server';
+
+  @override
+  String get remote_custom_url_save => 'Save';
+
+  @override
+  String get remote_custom_url_saved => 'Public URL saved';
+
+  @override
+  String get remote_custom_url_clear => 'Clear';
+
+  @override
+  String get remote_tunnel_local_hint =>
+      'Same-network link — works without any tunnel';
+
+  @override
   String get remote_paste_in_web => 'Paste this link into the web version';
 
   @override

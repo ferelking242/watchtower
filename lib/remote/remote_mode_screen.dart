@@ -145,25 +145,67 @@ import 'package:watchtower/remote/remote_mode_provider.dart';
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
 
-            if (state.tunnelUrl != null)
+            if (state.tunnelUrl != null) ...[
               _UrlCard(
                 url: state.tunnelUrl!,
                 label: context.l10n.remote_paste_in_web,
                 icon: Icons.cloud_outlined,
                 isPrimary: true,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Chip(
+                      avatar: const Icon(Icons.verified_user_outlined,
+                          size: 16),
+                      label: Text(
+                        context.l10n.remote_tunnel_provider(
+                          _providerName(state.tunnelProvider),
+                        ),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () => notifier.retryTunnel(),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: Text(context.l10n.remote_tunnel_retry),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (state.tunnelError != null)
+              _TunnelErrorCard(
+                error: state.tunnelError!,
+                onRetry: () => notifier.retryTunnel(),
               )
-            else if (state.tunnelError != null)
-              _TunnelErrorCard(error: state.tunnelError!)
             else
               Card(
-                child: ListTile(
-                  leading: const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  title: Text(context.l10n.remote_tunnel_starting),
-                  subtitle: Text(context.l10n.remote_tunnel_ssh_hint),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      title: Text(context.l10n.remote_tunnel_starting),
+                      subtitle: Text(
+                        state.downloadProgress != null
+                            ? context.l10n.remote_downloading_tunnel
+                            : context.l10n.remote_tunnel_ssh_hint,
+                      ),
+                    ),
+                    if (state.downloadProgress != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: LinearProgressIndicator(
+                          value: state.downloadProgress,
+                        ),
+                      ),
+                  ],
                 ),
               ),
 
@@ -175,9 +217,31 @@ import 'package:watchtower/remote/remote_mode_provider.dart';
             const SizedBox(height: 8),
             _UrlCard(
               url: state.localUrl ?? 'http://localhost:4567',
-              label: context.l10n.remote_use_same_network,
+              label: context.l10n.remote_tunnel_local_hint,
               icon: Icons.lan_outlined,
               isPrimary: false,
+            ),
+            const SizedBox(height: 16),
+
+            // ── Custom public URL ─────────────────────────────────────────
+            Text(context.l10n.remote_custom_url,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            _CustomUrlEditor(
+              initialValue: state.publicUrl,
+              onSave: (value) => notifier.setPublicUrl(value),
+            ),
+            const SizedBox(height: 16),
+
+            // ── NSFW exposure ─────────────────────────────────────────────
+            Card(
+              child: SwitchListTile(
+                value: state.exposeNsfw,
+                onChanged: (value) => notifier.setExposeNsfw(value),
+                title: Text(context.l10n.remote_expose_nsfw),
+                subtitle: Text(context.l10n.remote_expose_nsfw_hint),
+                secondary: const Icon(Icons.visibility_outlined),
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -291,10 +355,107 @@ import 'package:watchtower/remote/remote_mode_provider.dart';
     }
   }
 
+  String _providerName(String? provider) {
+    switch (provider) {
+      case 'cloudflared':
+        return 'Cloudflare';
+      case 'ssh':
+        return 'SSH · localhost.run';
+      case 'serveo':
+        return 'SSH · serveo.net';
+      case 'custom':
+        return 'URL personnalisée';
+      default:
+        return 'HTTPS';
+    }
+  }
+
+  // ── Éditeur d'URL publique personnalisée ─────────────────────────────────────
+  class _CustomUrlEditor extends StatefulWidget {
+    final String? initialValue;
+    final Future<void> Function(String? value) onSave;
+    const _CustomUrlEditor({required this.initialValue, required this.onSave});
+
+    @override
+    State<_CustomUrlEditor> createState() => _CustomUrlEditorState();
+  }
+
+  class _CustomUrlEditorState extends State<_CustomUrlEditor> {
+    late final TextEditingController _ctrl =
+        TextEditingController(text: widget.initialValue ?? '');
+    bool _busy = false;
+
+    @override
+    void dispose() {
+      _ctrl.dispose();
+      super.dispose();
+    }
+
+    Future<void> _save(String? value) async {
+      setState(() => _busy = true);
+      try {
+        await widget.onSave(value);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.remote_custom_url_saved),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              TextField(
+                controller: _ctrl,
+                keyboardType: TextInputType.url,
+                decoration: InputDecoration(
+                  hintText: context.l10n.remote_custom_url_hint,
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () {
+                            _ctrl.clear();
+                            _save(null);
+                          },
+                    child: Text(context.l10n.remote_custom_url_clear),
+                  ),
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _save(_ctrl.text.trim()),
+                    child: Text(context.l10n.remote_custom_url_save),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
   // ── Carte d'erreur tunnel : multiline + sélectionnable + bouton copier ────────
   class _TunnelErrorCard extends StatelessWidget {
     final String error;
-    const _TunnelErrorCard({required this.error});
+    final VoidCallback onRetry;
+    const _TunnelErrorCard({required this.error, required this.onRetry});
 
     @override
     Widget build(BuildContext context) {
@@ -337,6 +498,15 @@ import 'package:watchtower/remote/remote_mode_provider.dart';
               Text(
                 context.l10n.remote_check_connection,
                 style: TextStyle(fontSize: 12, color: fg.withValues(alpha: 0.75)),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonalIcon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(context.l10n.remote_tunnel_retry),
+                ),
               ),
             ],
           ),
