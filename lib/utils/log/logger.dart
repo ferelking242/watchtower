@@ -559,7 +559,11 @@ class AppLogger {
     _pendingLines.clear();
     _pendingChars = 0;
     try {
-      _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: true);
+      // No fsync: closing the file already hands the bytes to the OS, which
+      // survives a process death — the only thing this flush protects against.
+      // `flush: true` cost a full fsync per call, and the crash-path flush runs
+      // before every extension evaluation.
+      _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: false);
     } catch (_) {
       // A failing crash-path write must never throw: this runs inside the
       // error reporting of an already failing operation.
@@ -618,7 +622,7 @@ class AppLogger {
   /// crash-path flush.
   static void _appendBatchSync(String batch) {
     try {
-      _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: true);
+      _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: false);
     } catch (_) {
       // The folder or file can be deleted while the app runs (the user clears
       // storage, a cleaner wipes the cache dir). Recreate both once and retry:
@@ -626,7 +630,7 @@ class AppLogger {
       // stat on a path that only runs after a failure.
       try {
         _logFile.parent.createSync(recursive: true);
-        _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: true);
+        _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: false);
       } catch (_) {
         // Nothing left to try: the entry stays in the in-memory ring.
       }
