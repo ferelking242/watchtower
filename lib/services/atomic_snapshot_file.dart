@@ -11,23 +11,35 @@ Future<void> writeSnapshotAtomically({
   required Future<void> Function(String path) writeSnapshot,
 }) async {
   final stagingFile = File('$destinationPath.pending');
-  if (await stagingFile.exists()) {
-    await stagingFile.delete();
-  }
+  _deleteQuietly(stagingFile);
 
   try {
-    await writeSnapshot(stagingFile.path);
+    try {
+      await writeSnapshot(stagingFile.path);
+    } catch (error) {
+      // MDBX refuses to copy onto an existing file. `exists()`/`delete()` are
+      // unreliable on shared storage (`/storage/emulated/0/...` under scoped
+      // storage): they can report the file as absent while MDBX still sees it,
+      // which surfaced as `MdbxError (17): File exists` on the first snapshot
+      // after a failed one left its staging file behind. Retry once after an
+      // unconditional delete before giving up.
+      if (!error.toString().contains('File exists')) rethrow;
+      _deleteQuietly(stagingFile);
+      await writeSnapshot(stagingFile.path);
+    }
     if (!await stagingFile.exists() || await stagingFile.length() == 0) {
       throw StateError('Snapshot writer did not produce a non-empty file');
     }
     await stagingFile.rename(destinationPath);
   } finally {
-    if (await stagingFile.exists()) {
-      try {
-        await stagingFile.delete();
-      } catch (_) {
-        // Preserve the writer/rename error; a stale staging file is harmless.
-      }
-    }
+    _deleteQuietly(stagingFile);
+  }
+}
+
+void _deleteQuietly(File file) {
+  try {
+    if (file.existsSync()) file.deleteSync();
+  } catch (_) {
+    // Preserve the writer/rename error; a stale staging file is harmless.
   }
 }
