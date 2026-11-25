@@ -43,6 +43,14 @@ final _inFlightImageLoads = <String, Future<Uint8List?>>{};
 /// is fetched in the background, but only once per key at a time.
 final _revalidatingCovers = <String>{};
 
+/// Background cover refreshes in flight, and the ones waiting for a slot.
+///
+/// The ceiling keeps a grid of expired covers from opening one request per
+/// visible card at once.
+const int _maxConcurrentCoverRevalidations = 3;
+int _activeCoverRevalidations = 0;
+final _pendingCoverRevalidations = <void Function()>[];
+
 /// Deduplicates repeated cover-download failures so a broken CDN host does
 /// not print one line per card. Keyed by `status|host`; the first few are
 /// logged in full, then a periodic running total.
@@ -466,6 +474,11 @@ class CustomExtendedNetworkImageProvider
   /// the memory entry updated for the next load; on failure the stale file is
   /// left untouched so the next load retries. Only one revalidation per key
   /// runs at a time, and it never starts from inside the revalidation itself.
+  ///
+  /// At most [_maxConcurrentCoverRevalidations] run at once: a page that opens
+  /// with sixty expired covers otherwise fires sixty requests in the same
+  /// frame, which saturates the connection, the image decoders and the log sink
+  /// while the user is trying to scroll.
   void _revalidateCoverInBackground(
     CustomExtendedNetworkImageProvider key,
     String md5Key,
@@ -473,32 +486,51 @@ class CustomExtendedNetworkImageProvider
     Uint8List stale,
   ) {
     if (!_revalidatingCovers.add(md5Key)) return;
-    unawaited(() async {
-      try {
-        final fresh = await _loadNetwork(key, null);
-        if (fresh == null || fresh.isEmpty || _looksLikeMarkupOrText(fresh)) {
-          return;
-        }
-        if (_bytesEqual(fresh, stale)) return;
-        _memoryCache.put(md5Key, fresh);
-        try {
-          await (io.File(
-            join(cacheImagesDirectory.path, md5Key),
-          ) as dynamic).writeAsBytes(fresh);
-          CacheStorageManager.instance.noteWritten(fresh.length);
-        } catch (_) {}
-        _imgLog(
-          'DISK-REVALIDATED ${_shortUrl(key.url)} (${fresh.length} B)',
-        );
-      } catch (error) {
-        _imgLog(
-          'revalidation échouée ${_shortUrl(key.url)} — $error',
-          level: LogLevel.debug,
-        );
-      } finally {
-        _revalidatingCovers.remove(md5Key);
+    void start() => unawaited(
+      _runCoverRevalidation(key, md5Key, cacheImagesDirectory, stale),
+    );
+    if (_activeCoverRevalidations >= _maxConcurrentCoverRevalidations) {
+      _pendingCoverRevalidations.add(start);
+      return;
+    }
+    _activeCoverRevalidations++;
+    start();
+  }
+
+  Future<void> _runCoverRevalidation(
+    CustomExtendedNetworkImageProvider key,
+    String md5Key,
+    io.Directory cacheImagesDirectory,
+    Uint8List stale,
+  ) async {
+    try {
+      final fresh = await _loadNetwork(key, null);
+      if (fresh == null || fresh.isEmpty || _looksLikeMarkupOrText(fresh)) {
+        return;
       }
-    }());
+      if (_bytesEqual(fresh, stale)) return;
+      _memoryCache.put(md5Key, fresh);
+      try {
+        await (io.File(
+          join(cacheImagesDirectory.path, md5Key),
+        ) as dynamic).writeAsBytes(fresh);
+        CacheStorageManager.instance.noteWritten(fresh.length);
+      } catch (_) {}
+      _imgLog('DISK-REVALIDATED ${_shortUrl(key.url)} (${fresh.length} B)');
+    } catch (error) {
+      _imgLog(
+        'revalidation échouée ${_shortUrl(key.url)} — $error',
+        level: LogLevel.debug,
+      );
+    } finally {
+      _revalidatingCovers.remove(md5Key);
+      _activeCoverRevalidations--;
+      if (_pendingCoverRevalidations.isNotEmpty) {
+        final next = _pendingCoverRevalidations.removeAt(0);
+        _activeCoverRevalidations++;
+        next();
+      }
+    }
   }
 
   static bool _bytesEqual(Uint8List a, Uint8List b) {
