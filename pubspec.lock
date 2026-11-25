@@ -3400,7 +3400,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: db9ff531ca5c9b1eaba501dfcd063a167abf11eb
+      resolved-ref: "1b258785b2acc7ad52f5e01525a099be5a6fea56"
       url: "https://github.com/ferelking242/watchtower-sdk-dart.git"
     source: git
     version: "1.0.0"
