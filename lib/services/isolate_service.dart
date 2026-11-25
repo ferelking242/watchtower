@@ -53,6 +53,15 @@ class _ExtensionWorker {
 /// on several shelves at once can otherwise rebuild the same worker in a loop.
 const Duration kMinWorkerAgeBeforeRestart = Duration(seconds: 20);
 
+/// How long a worker gets to free its QuickJS runtimes after being asked to
+/// dispose. Long enough for an idle isolate to answer, short enough that a
+/// stuck one is still replaced promptly.
+const Duration kWorkerDisposeWait = Duration(milliseconds: 700);
+
+/// Pause between freeing the runtimes and exiting the isolate, so disposals
+/// queued behind an in-flight call still get their turn.
+const Duration kWorkerDisposeGracePeriod = Duration(milliseconds: 50);
+
 /// Key of the log-filter message pushed from the root isolate to extension
 /// workers (see `AppLogger.workerFilterSnapshot`). Workers use it to drop the
 /// records the root would discard anyway, before sanitising them and paying the
@@ -327,6 +336,29 @@ class GetIsolateService {
     return restart;
   }
 
+  /// Asks [worker] to free its extension runtimes and exit, waiting briefly.
+  ///
+  /// A worker stuck inside a native call cannot answer, so this returns on
+  /// timeout and the caller still kills it.
+  Future<void> _disposeWorkerGracefully(_ExtensionWorker worker) async {
+    final isolate = worker.isolate;
+    if (isolate == null) return;
+    final exitPort = ReceivePort();
+    final exited = Completer<void>();
+    exitPort.listen((_) {
+      if (!exited.isCompleted) exited.complete();
+    });
+    isolate.addOnExitListener(exitPort.sendPort);
+    worker.sendPort?.send('dispose');
+    try {
+      await exited.future.timeout(kWorkerDisposeWait);
+    } on TimeoutException {
+      // Still busy in native code: the caller kills it.
+    } finally {
+      exitPort.close();
+    }
+  }
+
   Future<void> _replaceTimedOutWorker(_ExtensionWorker failedWorker) async {
     if (!_workers.contains(failedWorker)) return;
 
@@ -351,6 +383,12 @@ class GetIsolateService {
     // A timed-out extension call is still running in this isolate. Its
     // per-source service queue would otherwise remain blocked, so replace the
     // entire worker to give retries a fresh ExtensionServiceRegistry.
+    //
+    // Ask the worker to dispose its runtimes first and wait for it to leave.
+    // Killing it outright leaves every QuickJS heap it allocated in the
+    // process, and a source that times out repeatedly leaks a runtime per
+    // replacement until the device is thrashing.
+    await _disposeWorkerGracefully(failedWorker);
     failedWorker.isolate?.kill(priority: Isolate.immediate);
     await failedWorker.receiveSub?.cancel();
     failedWorker.receivePort?.close();
@@ -566,7 +604,15 @@ class GetIsolateService {
                 useLogger = false;
               }
             } else if (message == 'dispose') {
+              // QuickJS memory is process-global: an isolate that is killed
+              // rather than torn down leaks every runtime it ever created, and
+              // a source that keeps timing out leaks one per replacement. Free
+              // the engines here, then leave so the caller does not have to
+              // kill this isolate.
               receivePort.close();
+              ExtensionServiceRegistry.disposeIdle();
+              await Future<void>.delayed(kWorkerDisposeGracePeriod);
+              Isolate.exit();
             }
           });
         });

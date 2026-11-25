@@ -230,6 +230,22 @@ class ExtensionServiceRegistry {
     );
   }
 
+  /// Disposes the cached services that have no call in flight.
+  ///
+  /// Used by an extension worker that is being replaced: freeing a runtime
+  /// that is still executing JS is a native free on a live heap, so the busy
+  /// source is left to the isolate exit instead.
+  static void disposeIdle() {
+    for (final entry in Map<String, ExtensionService>.from(_cache).entries) {
+      final queue = _queues[entry.key];
+      if (queue != null && queue.running != null) continue;
+      _queues.remove(entry.key)?.drain();
+      _cache.remove(entry.key);
+      _signatures.remove(entry.key);
+      _dispose(entry.value);
+    }
+  }
+
   /// Disposes all cached services (call on app exit or full reload).
   static void disposeAll() {
     final queues = Map<String, _ExtensionSourceQueue>.from(_queues);
