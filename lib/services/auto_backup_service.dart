@@ -305,10 +305,12 @@ class AutoBackupService {
       // MDBX returns "File exists" when copyToFile targets the old snapshot.
       // Rename only after the new copy is complete so failures keep the last
       // good backup available for restore.
+      final isarWatch = Stopwatch()..start();
       await writeSnapshotAtomically(
         destinationPath: p.join(dir.path, _isarFileName),
         writeSnapshot: (path) => isar.copyToFile(path),
       );
+      _logSlowStep('isar copy', isarWatch);
 
       final dbDir = await StorageProvider().getDatabaseDirectory();
       if (dbDir != null) {
@@ -327,7 +329,9 @@ class AutoBackupService {
       }
 
       // 2 — Hive preference boxes.
+      final hiveWatch = Stopwatch()..start();
       await _snapshotHive(dir);
+      _logSlowStep('hive snapshot', hiveWatch);
 
       // 3 — SharedPreferences.
       await _snapshotPreferences(dir);
@@ -451,8 +455,28 @@ class AutoBackupService {
         );
       }
     }
+    // Encoding the whole payload was a synchronous block on the UI isolate
+    // every ten minutes: the watchdog logged freezes climbing from 2.6 s to
+    // 12.5 s on an otherwise idle screen, each one right after a snapshot. The
+    // values are plain JSON-safe scalars by now, so the encoding moves to a
+    // helper isolate while the Hive boxes stay on this one.
+    final encoded = await compute(jsonEncode, data);
     final file = File(p.join(dir.path, _hiveSnapshotName));
-    await file.writeAsString(jsonEncode(data));
+    await file.writeAsString(encoded);
+  }
+
+  /// Reports a backup step long enough to explain a UI freeze.
+  ///
+  /// The 2026-11 logs pair every multi-second stall with a snapshot line, but
+  /// nothing said which part was slow — the database copy, the Hive walk or
+  /// the file write.
+  static void _logSlowStep(String step, Stopwatch watch) {
+    if (watch.elapsedMilliseconds < 200) return;
+    AppLogger.log(
+      'AutoBackup: $step took ${watch.elapsedMilliseconds}ms',
+      logLevel: LogLevel.warning,
+      tag: LogTag.maintenance,
+    );
   }
 
   static Future<void> _restoreHive(Directory dir) async {

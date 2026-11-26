@@ -417,6 +417,10 @@ class AppLogger {
   static String? get sessionsDirPath => _sessionsDirPath;
 
   static Future<void> init() async {
+    // The settings screen can call this again when the user re-enables the
+    // "Logs" switch; a second pass used to open a second sink and write a
+    // second session header into the same file.
+    if (_initialized) return;
     // File logging writes only while the user's "Logs" switch (À propos >
     // Développeur) is on. The caller reads the switch and passes it through
     // [setLoggingEnabled] before calling this, so a cold start with logging
@@ -445,7 +449,14 @@ class AppLogger {
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final dateOnly = '${now.year}-${two(now.month)}-${two(now.day)}';
-    _logFile = File(path.join(sessionsDir.path, '$dateOnly.log'));
+    // Two Watchtower installs can share `<storage>/Watchtower/logs` - a
+    // sideloaded build next to the store one. Appending both to a single daily
+    // file interleaved two unrelated sessions (out-of-order timestamps, two
+    // session headers, two `cache trimmed` lines with different limits) and
+    // made every past report ambiguous. The version suffix keeps them apart
+    // while one install still appends to the same file all day.
+    final logStem = '$dateOnly${await _versionSuffix()}';
+    _logFile = File(path.join(sessionsDir.path, '$logStem.log'));
     if (!await _logFile.exists()) {
       await _logFile.create(recursive: true);
     }
@@ -515,6 +526,10 @@ class AppLogger {
   /// getting. A tighter net costs one append per tick and keeps the last
   /// lines on disk when Dart never gets to run again.
   static const Duration _kCrashSafeFlushInterval = Duration(milliseconds: 120);
+
+  /// Append latency above which the logger owns up to being the stall.
+  static const int _slowAppendMs = 150;
+  static bool _measuringAppend = false;
 
   static void _queueFileWrite(String entry, {bool urgent = false}) {
     if (urgent) {
@@ -621,6 +636,7 @@ class AppLogger {
   /// Synchronous append. Never throws: it runs from error paths and from the
   /// crash-path flush.
   static void _appendBatchSync(String batch) {
+    final watch = _measuringAppend ? null : (Stopwatch()..start());
     try {
       _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: false);
     } catch (_) {
@@ -633,6 +649,24 @@ class AppLogger {
         _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: false);
       } catch (_) {
         // Nothing left to try: the entry stays in the in-memory ring.
+      }
+    }
+    // The crash-safe flush runs every 120 ms on the UI isolate, so slow
+    // storage turns logging itself into the freeze. Reporting the slow
+    // appends is the only way to tell "the app is blocked" from "the app is
+    // blocked *by its own logger*" - the 2026-11 logs showed 2 s UI freezes
+    // every few seconds on an idle screen with no way to attribute them.
+    if (watch != null && watch.elapsedMilliseconds >= _slowAppendMs) {
+      _measuringAppend = true;
+      try {
+        log(
+          'slow log append: ${watch.elapsedMilliseconds}ms for '
+          '${batch.length} chars',
+          logLevel: LogLevel.warning,
+          tag: LogTag.ui,
+        );
+      } finally {
+        _measuringAppend = false;
       }
     }
   }
@@ -710,15 +744,27 @@ class AppLogger {
     } catch (_) {}
   }
 
+  /// `-v<version>` appended to the daily log name, empty when unavailable.
+  static Future<String> _versionSuffix() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final version = info.version.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+      return version.isEmpty ? '' : '-v$version';
+    } catch (_) {
+      return '';
+    }
+  }
   static Future<void> _writeSessionHeader() async {
     try {
       final info = await PackageInfo.fromPlatform();
       final now = _timestamp();
+      // The pid separates two relaunches of the same build on one day.
       _queueFileWrite(
-        '\n── Session $now · v${info.version}+${info.buildNumber} ──────────────',
+        '\n── Session $now · v${info.version}+${info.buildNumber} · '
+        '${info.packageName} · pid $pid ──────────────',
       );
     } catch (_) {
-      _queueFileWrite('\n── Session ${_timestamp()} ──');
+      _queueFileWrite('\n── Session ${_timestamp()} · pid $pid ──');
     }
   }
 

@@ -180,6 +180,41 @@ class DiagnosticsService with WidgetsBindingObserver {
 
   // ── Watchdog ──────────────────────────────────────────────────────────────
 
+  /// What the process looked like when the isolate stopped answering.
+  ///
+  /// A stall that only names the route cannot be acted on: the same 2 s freeze
+  /// looks identical whether the isolate was blocked on one long synchronous
+  /// call or starved because four chapter downloads and the kernel were
+  /// fighting over the same cores. Resident size separates the two (memory
+  /// pressure) and the tail of the log ring says what was running.
+  String _stallContext() {
+    final buffer = StringBuffer();
+    try {
+      final rssMb = ProcessInfo.currentRss ~/ (1 << 20);
+      buffer.write('rss ${rssMb}MB');
+    } catch (_) {
+      buffer.write('rss ?');
+    }
+    final recent = AppLogger.recentEntries();
+    if (recent.isNotEmpty) {
+      // Two lines are enough to name the concurrent work; the full ring is
+      // already on disk for context.
+      final tail = recent.length > 2
+          ? recent.sublist(recent.length - 2)
+          : recent;
+      buffer.write(' | after ${tail.map(_condense).join(' / ')}');
+    }
+    return buffer.toString();
+  }
+
+  static String _condense(String entry) {
+    // Entries already start with `[timestamp][LEVEL] `; the timestamp is the
+    // stall moment itself, so only the payload is worth repeating.
+    final cut = entry.indexOf('] ');
+    final body = cut >= 0 ? entry.substring(cut + 2) : entry;
+    return body.length <= 90 ? body : '${body.substring(0, 90)}…';
+  }
+
   void _startWatchdog() {
     if (_watchdog != null) return;
     final clock = Stopwatch()..start();
@@ -200,9 +235,10 @@ class DiagnosticsService with WidgetsBindingObserver {
     } else if (drift != null) {
       _freezeCount++;
       final ms = drift.inMilliseconds;
+      final stallContext = _stallContext();
       if (ms > _longestFreezeMs) _longestFreezeMs = ms;
       AppLogger.log(
-        'UI isolate stalled for ${ms}ms (route $_route)',
+        'UI isolate stalled for ${ms}ms (route $_route, $stallContext)',
         logLevel: LogLevel.warning,
         tag: LogTag.ui,
       );

@@ -48,6 +48,7 @@ import 'package:watchtower/router/router.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/extension_worker_count.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/startup_breadcrumb.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
@@ -667,14 +668,18 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   // into <storage root>/.backup, so a reinstall can restore everything.
   if (!kIsWeb) unawaited(AutoBackupService.startAutoBackup());
   if (!kIsWeb) {
-    // Auto-tune the isolate pool size to the device's CPU count.
-    // Use 2× logical-core count so IO-bound work can overlap on each core,
-    // clamped to [8, 32] so low-end phones get at least 8 workers and
-    // high-end devices don't spawn hundreds of isolates.
+    // The pool size is also the number of chapters that may download at once,
+    // and every worker is a full isolate with its own HTTP client and Rust
+    // handle. Sizing it from the core count (2x cores, clamped to [8, 32]) put
+    // sixteen isolates and sixteen concurrent chapter downloads on a phone
+    // whose storage manages 0.1 MB/s: the device logs showed load 28 on eight
+    // cores, kswapd on another, and repeated 2-17 s UI stalls (the ANRs).
+    // Each chapter already parallelises its own pages through
+    // [MangaConnections], so a handful of chapters is all the link can carry.
     final cores = Platform.numberOfProcessors;
-    final poolSize = (cores * 2).clamp(8, 32);
+    final poolSize = recommendedDownloadPoolSize();
     debugPrint(
-      '[main] device has $cores CPU cores → isolate pool size = $poolSize',
+      '[main] device has $cores CPU cores → download pool size = $poolSize',
     );
     // Lazy init: configure the pool size now but defer isolate creation to
     // the first actual download.  The pool's submit methods already call

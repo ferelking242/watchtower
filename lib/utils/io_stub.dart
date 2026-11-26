@@ -42,6 +42,15 @@ class FileSystemMoveEvent extends FileSystemEvent {
   );
 }
 
+/// Web stub for the `dart:io` process id.
+int get pid => 0;
+
+/// Web stub for `ProcessInfo`, which web builds do not have.
+class ProcessInfo {
+  static int get currentRss => 0;
+  static int get maxRss => 0;
+}
+
 // ─── Platform stub for web ────────────────────────────────────────────────────
 // dart:io Platform throws on web. This stub returns safe defaults so that
 // all Platform.isX / Platform.operatingSystem calls compile and run on web

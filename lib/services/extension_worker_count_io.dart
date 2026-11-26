@@ -22,3 +22,24 @@ int getRecommendedExtensionWorkerCount() {
   };
   return byCpu < byRam ? byCpu : byRam;
 }
+
+/// Number of chapters that may download at the same time.
+///
+/// Every download worker is a full isolate with its own HTTP client and Rust
+/// handle, and each chapter already opens its own page-level connections
+/// (`MangaConnections` / `AnimeConnections`, 3 by default). Sizing this from
+/// the core count (2x cores, 8-32) produced sixteen workers on a flagship and
+/// sixteen concurrent chapter downloads; the 2026-11 device logs then show
+/// load 28 on eight cores, kswapd pinning another, and 2-17 s UI stalls. A
+/// phone link cannot carry that many streams anyway - the same bytes move
+/// faster on three.
+int recommendedDownloadPoolSize() {
+  if (DeviceCapabilities.physicalMemoryMB <= 0) {
+    return Platform.numberOfProcessors <= 4 ? 2 : 3;
+  }
+  return switch (DeviceCapabilities.ramTier) {
+    'low' => 2,
+    'mid' => 3,
+    _ => 4,
+  };
+}

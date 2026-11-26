@@ -294,9 +294,23 @@ class ReaderController extends _$ReaderController {
   /// Returns `(index, inFilteredList)`. When the chapter is absent from both
   /// lists it returns `(0, true)` so navigation degrades to "first chapter"
   /// instead of throwing.
+  /// Chapters in reading-navigation order: newest chapter first, whatever
+  /// display sort the user picked.
+  ///
+  /// "Next" is `-1` and "previous" `+1` on this order. Once
+  /// [MangaExtensions.getFilteredChapterList] started honouring the sort
+  /// setting it can come back ascending (date, name, scanlator), which would
+  /// have silently walked the reader backwards.
+  List<Chapter> _navigationChapters(Manga manga) => sortChapters(
+    manga.getFilteredChapterList(),
+    sortIndex: 1,
+    reverse: true,
+    mangaTitle: manga.name ?? '',
+  );
+
   (int, bool) _chapterIndexOf(int delta) {
     final manga = getManga();
-    final filtered = manga.getFilteredChapterList();
+    final filtered = _navigationChapters(manga);
     final inFiltered = filtered.indexWhere((c) => c.id == chapter.id);
     if (inFiltered >= 0) return (inFiltered + delta, true);
     final all = manga.getAllChapterList();
@@ -314,7 +328,7 @@ class ReaderController extends _$ReaderController {
   Chapter getPrevChapter() {
     final (index, inFiltered) = getPrevChapterIndex();
     final list = inFiltered
-        ? getManga().getFilteredChapterList()
+        ? _navigationChapters(getManga())
         : getManga().getAllChapterList();
     if (index < 0 || index >= list.length) return chapter;
     return list[index];
@@ -575,13 +589,16 @@ extension MangaExtensions on Manga {
         })
         .where((element) => !filterScanlator.contains(element.scanlator))
         .toList();
-    // Always newest-first, whatever the display sort: the reader's "next"
-    // action is index -1 and its "previous" index +1. Returning an ascending
-    // list here made both buttons walk the wrong way.
+    // The direction follows the setting, exactly like the detail screen
+    // (`reverse: sortChapter == 1`): "by number" lists newest-first, every
+    // other sort lists ascending. Hardcoding `reverse: true` ignored the
+    // setting and returned the opposite order for date, name and scanlator.
+    // Navigation no longer relies on this order — see [_navigationChapters],
+    // which always walks newest-first.
     return sortChapters(
       chapterList,
       sortIndex: sortChapter,
-      reverse: true,
+      reverse: sortChapter == 1,
       mangaTitle: name ?? '',
     );
   }
