@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:isar_community/isar.dart';
 import 'package:lottie/lottie.dart';
@@ -18,6 +19,7 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/search.dart';
@@ -264,6 +266,15 @@ class _DiscoverItem {
   String displayTitle(AppLocalizations l10n) =>
       titleEnglish ?? titleRomaji ?? l10n.discover_unknown_title;
 
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'format': format,
+    'title': {'romaji': titleRomaji, 'english': titleEnglish},
+    'coverImage': {'extraLarge': coverUrl},
+    'averageScore': score,
+  };
+
   factory _DiscoverItem.fromJson(Map<String, dynamic> json) {
     final title = (json['title'] as Map?)?.cast<String, dynamic>() ?? {};
     final cover = (json['coverImage'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -501,6 +512,76 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
 
   List<String> get _availableFormats => _type.aniType == 'ANIME' ? _kAnimeFormats : _kMangaFormats;
 
+  // ── AniList cache ────────────────────────────────────────────────────────────
+
+  static const String _cacheBoxName = 'discover_cache';
+  static const Duration _cacheTtl = Duration(hours: 72);
+
+  String get _cacheKey => jsonEncode({
+    'type': _type.name,
+    'sort': _sort.name,
+    'search': _searchQuery,
+    'genre': _genre,
+    'format': _format,
+    'season': _season,
+    'timeless': _timeless,
+    'year': _seasonYear,
+    'status': _status,
+    'score': _minScore,
+    'adult': _adult,
+  });
+
+  Future<void> _writeCache(List<_DiscoverItem> items) async {
+    if (items.isEmpty) return;
+    try {
+      final box = await Hive.openBox(_cacheBoxName);
+      await box.put(
+        _cacheKey,
+        jsonEncode({
+          'at': DateTime.now().millisecondsSinceEpoch,
+          'items': items.map((item) => item.toJson()).toList(),
+        }),
+      );
+    } catch (_) {
+      // A cache write must never break the fetch that produced the data.
+    }
+  }
+
+  Future<List<_DiscoverItem>?> _readCache() async {
+    try {
+      final box = await Hive.openBox(_cacheBoxName);
+      final raw = box.get(_cacheKey);
+      if (raw is! String) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final at = (decoded['at'] as num?)?.toInt() ?? 0;
+      if (DateTime.now().millisecondsSinceEpoch - at >
+          _cacheTtl.inMilliseconds) {
+        return null;
+      }
+      final items = (decoded['items'] as List? ?? [])
+          .whereType<Map>()
+          .map((item) => _DiscoverItem.fromJson(item.cast<String, dynamic>()))
+          .toList(growable: false);
+      return items.isEmpty ? null : items;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _showCachedResults() async {
+    final cached = await _readCache();
+    if (!mounted || cached == null) return;
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(cached);
+      _isLoading = false;
+      _hasError = false;
+      _hasNextPage = false;
+    });
+  }
+
   // ── AniList fetch ─────────────────────────────────────────────────────────────
 
   Future<void> _fetchResults({bool reset = false}) async {
@@ -515,10 +596,15 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
       });
     }
     if (!_hasNextPage || _isLoading) return;
+    if (_page == 1 && ConnectivityService.instance.isOffline) {
+      await _showCachedResults();
+      if (_items.isNotEmpty) return;
+    }
     final requestGeneration = _requestGeneration;
+    final requestedPage = _page;
     setState(() => _isLoading = true);
     try {
-      final (newItems, hasNext) = await _queryAniList(_page);
+      final (newItems, hasNext) = await _queryAniList(requestedPage);
       if (mounted && requestGeneration == _requestGeneration) {
         setState(() {
           _items.addAll(newItems);
@@ -527,6 +613,9 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
           _isLoading = false;
           _hasError = false;
         });
+        if (requestedPage == 1) {
+          await _writeCache(_items);
+        }
       }
     } catch (e) {
       if (mounted && requestGeneration == _requestGeneration) {
@@ -535,11 +624,19 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
           _hasError = true;
           _errorMsg = e.toString();
         });
+        // Same behaviour as the film/series hub: a failed refresh shows the
+        // last good catalogue instead of a full-screen error wall.
+        if (requestedPage == 1 && _items.isEmpty) {
+          await _showCachedResults();
+        }
       }
     }
   }
 
   Future<(List<_DiscoverItem>, bool)> _queryAniList(int page) async {
+    if (ConnectivityService.instance.isOffline) {
+      throw const OfflineRequestError();
+    }
     final vars = <String, dynamic>{
       'page': page,
       'type': _type.aniType,

@@ -4248,6 +4248,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get author_works => 'Works by this author';
 
   @override
+  String get designer_works => 'Works by this designer';
+
+  @override
   String get select_range => 'Select range';
 
   @override

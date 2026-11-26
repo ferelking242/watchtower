@@ -4,6 +4,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
@@ -40,6 +41,13 @@ Future<dynamic> updateMangaDetail(
     // the synchronous backlink load below, which is only needed to reconcile
     // remote chapter lists.
     if (manga.isLocalArchive ?? false) {
+      return;
+    }
+
+    // Opening a cached title while offline must not fire an extension request
+    // that can only time out. The detail page already has everything it needs
+    // from Isar; a refresh happens on the next online open.
+    if (ConnectivityService.instance.isOffline) {
       return;
     }
 

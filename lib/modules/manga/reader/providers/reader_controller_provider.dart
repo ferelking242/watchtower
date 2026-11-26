@@ -15,6 +15,7 @@ import 'package:watchtower/modules/more/settings/downloads/providers/downloads_s
 import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/modules/more/settings/track/providers/track_providers.dart';
 import 'package:watchtower/utils/chapter_link.dart';
+import 'package:watchtower/utils/chapter_sort.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -485,8 +486,17 @@ extension ChapterExtensions on Chapter {
 extension MangaExtensions on Manga {
   /// Every chapter of this title, newest-first, from the reliable `mangaId`
   /// index rather than the fragile `chapters` backlink (see [chaptersOfManga]).
-  List<Chapter> getAllChapterList() =>
-      chaptersOfManga(this).reversed.toList();
+  ///
+  /// The index returns insertion order, which is not reading order, so the list
+  /// is sorted by chapter number before being reversed. Without that explicit
+  /// sort, "next chapter" followed the extension's publication order and could
+  /// jump from chapter 50 back to 49.
+  List<Chapter> getAllChapterList() => sortChapters(
+    chaptersOfManga(this),
+    sortIndex: 1,
+    reverse: true,
+    mangaTitle: name ?? '',
+  );
 
   List<Chapter> getFilteredChapterList() {
     // Ascending input, matching `_filterAndSortChapter` in the detail screen:
@@ -526,7 +536,8 @@ extension MangaExtensions on Manga {
                     .toList()
                     .firstOrNull ??
                 SortChapter(mangaId: id, index: 1, reverse: false))
-            .index;
+            .index ??
+        1;
     final filterScanlator = _getFilterScanlator(this) ?? [];
     // One Isar query for the whole list instead of one per chapter (see
     // manga_detail_view.dart — the same per-chapter lookup used to run a
@@ -564,35 +575,15 @@ extension MangaExtensions on Manga {
         })
         .where((element) => !filterScanlator.contains(element.scanlator))
         .toList();
-    List<Chapter> chapters = sortChapter == 1
-        ? chapterList.reversed.toList()
-        : chapterList;
-    if (sortChapter == 0) {
-      chapters.sort((a, b) {
-        return (a.scanlator == null ||
-                b.scanlator == null ||
-                a.dateUpload == null ||
-                b.dateUpload == null)
-            ? 0
-            : a.scanlator!.compareTo(b.scanlator!) |
-                  a.dateUpload!.compareTo(b.dateUpload!);
-      });
-    } else if (sortChapter == 2) {
-      chapters.sort((a, b) {
-        return (a.dateUpload == null || b.dateUpload == null)
-            ? 0
-            : int.parse(a.dateUpload!).compareTo(int.parse(b.dateUpload!));
-      });
-    } else if (sortChapter == 3) {
-      chapters.sort((a, b) {
-        return (a.name == null || b.name == null)
-            ? 0
-            : a.name!.compareTo(b.name!);
-      });
-    }
-    // `chapters` holds the sorted order; `chapterList` is the pre-sort
-    // intermediate. Returning the latter ignored the chapter sort setting.
-    return chapters;
+    // Always newest-first, whatever the display sort: the reader's "next"
+    // action is index -1 and its "previous" index +1. Returning an ascending
+    // list here made both buttons walk the wrong way.
+    return sortChapters(
+      chapterList,
+      sortIndex: sortChapter,
+      reverse: true,
+      mangaTitle: name ?? '',
+    );
   }
 }
 

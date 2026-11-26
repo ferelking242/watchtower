@@ -63,6 +63,7 @@ import '../../../utils/constant.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/utils/chapter_sort.dart';
 
 /// Onglets de la page de détail, dans l'ordre demandé :
 /// Chapitres · Similar · Commentaires.
@@ -409,33 +410,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
         })
         .where((element) => !filterScanlator.contains(element.scanlator))
         .toList();
-    List<Chapter> chapters = sortChapter == 1
-        ? chapterList.reversed.toList()
-        : chapterList;
-    if (sortChapter == 0) {
-      chapters.sort((a, b) {
-        return (a.scanlator == null ||
-                b.scanlator == null ||
-                a.dateUpload == null ||
-                b.dateUpload == null)
-            ? 0
-            : a.scanlator!.compareTo(b.scanlator!) |
-                  a.dateUpload!.compareTo(b.dateUpload!);
-      });
-    } else if (sortChapter == 2) {
-      chapters.sort((a, b) {
-        return (a.dateUpload == null || b.dateUpload == null)
-            ? 0
-            : int.parse(a.dateUpload!).compareTo(int.parse(b.dateUpload!));
-      });
-    } else if (sortChapter == 3) {
-      chapters.sort((a, b) {
-        return (a.name == null || b.name == null)
-            ? 0
-            : a.name!.compareTo(b.name!);
-      });
-    }
-    return chapters;
+    return sortChapters(
+      chapterList,
+      sortIndex: sortChapter,
+      reverse: sortChapter == 1,
+      mangaTitle: widget.manga?.name ?? '',
+    );
   }
 
   Widget _buildWidget({
@@ -1942,7 +1922,9 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
             },
             child: Text(
               widget.manga!.name!,
-              style: const TextStyle(fontSize: 20),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 19, height: 1.15),
             ),
           ),
         widget.titleDescription!,
@@ -2030,7 +2012,37 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
       builder: (context, snapshot) {
         List<TrackPreference>? entries = snapshot.hasData ? snapshot.data! : [];
         if (entries.isEmpty) {
-          return SizedBox.shrink();
+          // No tracker configured yet: keep the slot before WebView, but make
+          // it a direct shortcut to the tracker settings instead of hiding it.
+          return Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                elevation: 0,
+              ),
+              onPressed: () => context.push('/manageTrackers'),
+              child: widget.isLoading
+                  ? const DetailActionButtonSkeleton(labelWidth: 44)
+                  : Column(
+                      children: [
+                        Icon(
+                          Broken.setting_2,
+                          size: 20,
+                          color: context.secondaryColor,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          context.l10n.tracking,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.secondaryColor,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+            ),
+          );
         }
         return Expanded(
           child: ElevatedButton(

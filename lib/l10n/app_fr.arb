@@ -1321,6 +1321,7 @@
   "copied": "Copié",
   "copied_to_clipboard": "Copié dans le presse-papiers",
   "author_works": "Oeuvres de cet auteur",
+  "designer_works": "Oeuvres de ce dessinateur",
   "select_range": "Sélectionner la plage",
   "select_all": "Tout sélectionner",
   "select_invert": "Inverser la sélection",

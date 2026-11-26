@@ -17,6 +17,7 @@ import 'package:watchtower/services/http/rhttp/rhttp.dart' as rhttp;
 import 'package:watchtower/services/http/doh/doh_resolver.dart';
 import 'package:watchtower/services/http/doh/doh_providers.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
+import 'package:watchtower/services/http/offline_interceptor.dart';
 import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/constant.dart';
 
@@ -273,6 +274,7 @@ class MClient {
     // pour que toutes les requêtes passent par le worker et évitent les CORS.
     final interceptors = <InterceptorContract>[
       if (kIsWeb) WebProxyInterceptor(),
+      if (!kIsWeb) OfflineInterceptor(),
       MCookieManager(
         reqcopyWith,
         sourceId: extensionSourceId ?? source?.id,

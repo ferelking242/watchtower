@@ -4307,6 +4307,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get author_works => 'Oeuvres de cet auteur';
 
   @override
+  String get designer_works => 'Oeuvres de ce dessinateur';
+
+  @override
   String get select_range => 'Sélectionner la plage';
 
   @override

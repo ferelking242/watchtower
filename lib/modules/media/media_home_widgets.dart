@@ -2656,6 +2656,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     this.initialAnilistItems = const [],
     this.onOpenAnilist,
     this.startSelection = false,
+    this.initialSearchQuery = '',
     super.key,
   });
 
@@ -2666,6 +2667,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     this.initialExtensionItems = const [],
     this.cardStyle,
     this.seeAllPage,
+    this.initialSearchQuery = '',
     super.key,
   }) : path = '',
        initialItems = const [],
@@ -2687,6 +2689,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     this.cardStyle,
     this.seeAllPage,
     this.onOpenAnilist,
+    this.initialSearchQuery = '',
     super.key,
   }) : path = '',
        initialItems = const [],
@@ -2720,6 +2723,10 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
 
   /// Opens the page with bulk selection already active.
   final bool startSelection;
+
+  /// Pre-fills the extension catalogue search. Used by the author/designer
+  /// chips so they land on the "Tout" page with that person's works.
+  final String initialSearchQuery;
 
   @override
   ConsumerState<TmdbMoviesListScreen> createState() =>
@@ -2850,6 +2857,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     _movies = [...widget.initialItems];
     _extensionItems = [...widget.initialExtensionItems];
     _anilistItems = [...widget.initialAnilistItems];
+    _searchQuery = widget.initialSearchQuery.trim();
     if (_isExtension) {
       try {
         _extensionFilters = getFilterList(

@@ -346,13 +346,15 @@ class RouterNotifier extends ChangeNotifier {
         fallback: WatchExtensionHomeScreen(source: source),
       ),
     ),
-    // Person search: works of a single author/artist within one extension.
-    // The author name is passed as the initial search query and the results
-    // open directly in the extension's search screen (no global search).
+    // All works of one author/designer inside one extension. Opens the same
+    // catalogue page as the extension's "Tout" tab, pre-filtered with the name,
+    // so the user gets the usual filters/sort instead of a bare search screen.
     _genericRoute<(Source, String)>(
-      name: "extensionPersonSearch",
-      builder: (data) => WatchExtensionHomeScreen(
+      name: "extensionPersonWorks",
+      builder: (data) => TmdbMoviesListScreen.extension(
+        title: data.$2,
         source: data.$1,
+        sectionId: 'latest',
         initialSearchQuery: data.$2,
       ),
     ),

@@ -50,12 +50,22 @@ class AdaptiveOverlayMenuButton extends StatefulWidget {
   /// When false the trigger is inert and no panel is opened.
   final bool enabled;
 
+  /// Optional tap action. When set, tapping the trigger calls it instead of
+  /// opening the panel.
+  final VoidCallback? onTap;
+
+  /// Opens the panel on a long press instead of a tap. Used by chips whose
+  /// tap already performs the primary action.
+  final bool openMenuOnLongPress;
+
   const AdaptiveOverlayMenuButton({
     super.key,
     required this.trigger,
     required this.contentBuilder,
     this.menuWidth = 220,
     this.enabled = true,
+    this.onTap,
+    this.openMenuOnLongPress = false,
   });
 
   @override
@@ -139,7 +149,17 @@ class _AdaptiveOverlayMenuButtonState
       child: KeyedSubtree(
         key: _anchorKey,
         child: GestureDetector(
-          onTap: _toggle,
+          onTap: () {
+            if (!widget.enabled) return;
+            if (widget.openMenuOnLongPress) {
+              widget.onTap?.call();
+            } else if (widget.onTap != null) {
+              widget.onTap!();
+            } else {
+              _toggle();
+            }
+          },
+          onLongPress: widget.openMenuOnLongPress ? _toggle : null,
           behavior: HitTestBehavior.opaque,
           child: widget.trigger,
         ),

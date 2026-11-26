@@ -7517,6 +7517,12 @@ abstract class AppLocalizations {
   /// **'Works by this author'**
   String get author_works;
 
+  /// No description provided for @designer_works.
+  ///
+  /// In en, this message translates to:
+  /// **'Works by this designer'**
+  String get designer_works;
+
   /// No description provided for @select_range.
   ///
   /// In en, this message translates to:

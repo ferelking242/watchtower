@@ -7,6 +7,7 @@ import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/local_manga_page_files.dart';
 import 'package:watchtower/services/page_url_cache.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/main.dart';
@@ -157,8 +158,12 @@ Future<GetChapterPagesModel> getChapterPages(
         }
       }
     }
+    // Scan the chapter folder even when the download record is not marked
+    // complete: a 12/23 interrupted download still has 12 readable pages, and
+    // calling the extension for that chapter only failed (offline) or
+    // re-downloaded what was already on disk.
     final localDownloadedPageUrls =
-        isDownloaded && !isLocalSource && downloadedArchivePath == null
+        !isLocalSource && downloadedArchivePath == null
         ? await getDownloadedLocalMangaPages(path)
         : <PageUrl>[];
     final useLocalDownloadedPages = localDownloadedPageUrls.isNotEmpty;
@@ -224,6 +229,19 @@ Future<GetChapterPagesModel> getChapterPages(
       );
       if (useLocalDownloadedPages) {
         pageUrls = localDownloadedPageUrls;
+        // A partial download kept the full page list in the settings cache.
+        // Use it when online so the missing pages still load remotely; offline,
+        // stay on the files that actually exist instead of showing dead URLs.
+        final cachedPages =
+            (isarPageUrls?.urls?.isNotEmpty ?? false) &&
+                !hasUnsafeCachedMetadata &&
+                (isarPageUrls?.chapterUrl ?? chapter.url) == chapter.url
+            ? decodeChapterPageurls(isarPageUrls)
+            : <PageUrl>[];
+        if (!ConnectivityService.instance.isOffline &&
+            cachedPages.length > pageUrls.length) {
+          pageUrls = cachedPages;
+        }
       }
     }
 

@@ -64,6 +64,14 @@ class MangaDetailsView extends ConsumerStatefulWidget {
 }
 
 class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
+  final ScrollController _genreScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _genreScrollController.dispose();
+    super.dispose();
+  }
+
   Size measureText(String text, TextStyle style) {
     final TextPainter textPainter = TextPainter(
       text: TextSpan(text: text, style: style),
@@ -81,17 +89,27 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
     return textSize.width + padding;
   }
 
-  /// Author and designer (artist) as tappable chips. A tap opens the shared
-  /// glass box — the same component as the download and three-dots menus —
-  /// anchored to the tapped name, offering copy, in-extension search and
-  /// global search.
-  Widget _buildAuthorLine(AppLocalizations l10n) {
-    final author = widget.manga.author?.trim();
-    final artist = widget.manga.artist?.trim();
-    final hasAuthor = author?.isNotEmpty ?? false;
-    final hasArtist = artist?.isNotEmpty ?? false;
+  /// Splits an extension field such as `"Sing Sing (싱싱), Toy Car (토이카)"`
+  /// into independent names so each one can be tapped on its own.
+  List<String> _splitPeople(String? raw) {
+    if (raw == null) return const [];
+    return raw
+        .split(RegExp(r'[,;]'))
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
 
-    if (!hasAuthor && !hasArtist) {
+  /// Author and designer chips. A tap opens the "all works" catalogue for
+  /// that one person; a long press opens the copy/search menu.
+  Widget _buildAuthorLine(AppLocalizations l10n) {
+    final authors = _splitPeople(widget.manga.author);
+    final designers = _splitPeople(widget.manga.artist)
+        .where((name) => !authors.contains(name))
+        .toList(growable: false);
+
+    if (authors.isEmpty && designers.isEmpty) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -105,28 +123,13 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
       );
     }
 
-    // (name, isDesigner): the author leads, the designer follows when it
-    // differs. When the extension publishes only one of the two, that one
-    // still carries its own icon.
-    final people = <(String, bool)>[
-      if (hasAuthor) (author!, false),
-      if (hasArtist && artist != author) (artist!, true),
-    ];
-
     return Wrap(
+      spacing: 8,
+      runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (var i = 0; i < people.length; i++) ...[
-          if (i > 0)
-            Text(
-              ' • ',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: context.secondaryColor,
-              ),
-            ),
-          _personChip(people[i].$1, people[i].$2),
-        ],
+        for (final name in authors) _personChip(name, false),
+        for (final name in designers) _personChip(name, true),
       ],
     );
   }
@@ -135,6 +138,8 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
     final l10n = l10nLocalizations(context)!;
     return AdaptiveOverlayMenuButton(
       menuWidth: 264,
+      openMenuOnLongPress: true,
+      onTap: () => _openAuthorWorks(name),
       trigger: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -158,7 +163,7 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AdaptiveOverlaySection(
-            title: isDesigner ? l10n.designer : l10n.author_works,
+            title: isDesigner ? l10n.designer_works : l10n.author_works,
           ),
           AdaptiveOverlayItem(
             icon: Broken.copy,
@@ -207,37 +212,55 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
         .where((g) => g.isNotEmpty)
         .toSet()
         .toList();
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final genre in genres)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => context.push(
-              '/globalSearch',
-              extra: (genre, widget.manga.itemType),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: context.primaryColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: context.primaryColor.withValues(alpha: 0.22),
-                  width: 0.8,
+    // Tags live in a bounded, scrollable strip so a title with 20 genres
+    // cannot push the description and the chapter list off the first screen.
+    // The scrollbar makes the hidden overflow discoverable.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 54),
+      child: Scrollbar(
+        controller: _genreScrollController,
+        thumbVisibility: true,
+        radius: const Radius.circular(8),
+        child: SingleChildScrollView(
+          controller: _genreScrollController,
+          padding: const EdgeInsets.only(right: 8),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final genre in genres)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => context.push(
+                    '/globalSearch',
+                    extra: (genre, widget.manga.itemType),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: context.primaryColor.withValues(alpha: 0.22),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      genre,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                genre,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 
@@ -256,6 +279,9 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
     botToast(l10nLocalizations(context)!.added_to_library);
   }
 
+  /// Opens the extension's catalogue page ("Tout") pre-filtered with the
+  /// person's name, so the user lands on their works with the usual filters —
+  /// not on the search screen.
   void _openAuthorWorks(String name) {
     final source = getSource(
       widget.manga.lang!,
@@ -266,7 +292,7 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
       botToast(l10nLocalizations(context)!.source_not_added);
       return;
     }
-    context.push('/extensionPersonSearch', extra: (source, name));
+    context.push('/extensionPersonWorks', extra: (source, name));
   }
 
   @override
@@ -445,8 +471,20 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
             ],
           ],
         ),
-        action: widget.manga.favorite!
+        action: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.9, end: 1).animate(animation),
+              child: child,
+            ),
+          ),
+          child: widget.manga.favorite!
             ? SizedBox(
+                key: const ValueKey('in-library'),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -479,6 +517,7 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                 ),
               )
             : GestureDetector(
+                key: const ValueKey('add-to-library'),
                 // Long press: add straight to the library in the default
                 // category, without opening the category picker.
                 onLongPress: _addToLibraryDefault,
@@ -526,6 +565,7 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                         ),
                 ),
               ),
+        ),
         manga: widget.manga,
         isExtended: (value) {
           ref.read(isExtendedStateProvider.notifier).update(value);
