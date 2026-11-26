@@ -92,9 +92,9 @@ class _StaticTabPills extends StatelessWidget {
     l10n.home_tab_movie,
     l10n.home_tab_series,
     l10n.home_tab_anime,
+    l10n.home_tab_music,
     l10n.home_tab_asia,
     l10n.home_tab_tv_short,
-    l10n.home_tab_music,
   ];
 
   @override

@@ -6,6 +6,7 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
 enum AnimeDirectoryKind { studios, genres, tags, countries }
@@ -111,14 +112,15 @@ class AnimeDirectoryScreen extends ConsumerWidget {
         top: false,
         child: asyncHome.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                context.l10n.anime_directory_load_failed('$error'),
-                textAlign: TextAlign.center,
-              ),
-            ),
+          error: (error, _) => OfflineContentState(
+            title: isOfflineContentError(error)
+                ? l10n.offline_no_connection
+                : 'Contenu indisponible',
+            message: isOfflineContentError(error)
+                ? '${l10n.offline_connect_for(title)} '
+                      '${l10n.media_check_connection}'
+                : 'Le service AniList est injoignable pour le moment.',
+            onRetry: () => ref.invalidate(anilistHomeProvider),
           ),
           data: (home) {
             final entries = _entries(home, l10n);

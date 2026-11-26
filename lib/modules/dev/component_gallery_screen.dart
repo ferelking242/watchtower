@@ -4604,7 +4604,7 @@ class _PrefabSection extends StatelessWidget {
             title: title,
             subtitle: subtitle,
             leadingIcon: icon,
-            actionLabel: 'Tout voir',
+            actionLabel: 'Tout >',
             onAction: () {},
           ),
           const SizedBox(height: 10),

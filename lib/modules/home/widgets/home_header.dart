@@ -12,7 +12,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 /// by [homeTabLabel] so the tab row follows the app locale.
 const kHomeTabs = 12;
 
-/// Position of the Music pill: between Series and Anime.
+/// Anime sits right after Series; Music follows it.
 String homeTabLabel(BuildContext context, int index) {
   final l10n = context.l10n;
   switch (index) {
@@ -21,9 +21,9 @@ String homeTabLabel(BuildContext context, int index) {
     case 2:
       return l10n.home_tab_series;
     case 3:
-      return l10n.home_tab_music;
-    case 4:
       return l10n.home_tab_anime;
+    case 4:
+      return l10n.home_tab_music;
     case 5:
       return l10n.home_tab_asia;
     case 6:

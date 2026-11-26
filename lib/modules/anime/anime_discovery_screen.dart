@@ -49,52 +49,17 @@ class AniListErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isOfflineContentError(error)) {
-      final l10n = context.l10n;
-      return OfflineContentState(
-        message: '${l10n.offline_connect_for(l10n.anime_feed_catalogue)} '
-            '${l10n.media_check_connection}',
-        onRetry: onRetry,
-      );
-    }
-
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off_outlined,
-              size: 56,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Contenu indisponible',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Le service est injoignable pour le moment. '
-              'Il est peut-être en panne ou limite les requêtes.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.tonalIcon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
-            ),
-          ],
-        ),
-      ),
+    final l10n = context.l10n;
+    final offline = isOfflineContentError(error);
+    return OfflineContentState(
+      title: offline ? l10n.offline_no_connection : 'Contenu indisponible',
+      message: offline
+          ? '${l10n.offline_connect_for(l10n.anime_feed_catalogue)} '
+                '${l10n.media_check_connection}'
+          : 'Le service AniList est injoignable pour le moment. '
+                'Il est peut-être en panne ou limite les requêtes.',
+      onRetry: onRetry,
     );
   }
+
 }

@@ -101,11 +101,12 @@ class MovieDetailsCard extends StatelessWidget {
                   children: [
                     Text(
                       item.title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
+                        height: 1.15,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -178,10 +179,10 @@ class MovieDetailsCard extends StatelessWidget {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: accent.withValues(alpha: .19),
-                        borderRadius: BorderRadius.circular(20),
+                        color: accent.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: accent.withValues(alpha: .34),
+                          color: accent.withValues(alpha: .45),
                         ),
                       ),
                       child: Text(
@@ -189,9 +190,10 @@ class MovieDetailsCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
+                          color: Colors.white,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: .1,
                         ),
                       ),
                     ),
@@ -203,10 +205,11 @@ class MovieDetailsCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               context.l10n.media_summary,
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 10,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w800,
+                letterSpacing: .3,
               ),
             ),
             const SizedBox(height: 4),
@@ -287,9 +290,9 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
           maxLines: _expanded ? null : 2,
           overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 10,
-            height: 1.3,
+            color: Colors.white70,
+            fontSize: 11,
+            height: 1.35,
           ),
         ),
         if (showToggle)
@@ -1434,7 +1437,6 @@ String _metaLine(RichMediaCardData data) {
   final parts = <String>[
     if (data.seasonNumber != null) 'S${data.seasonNumber}',
     if (data.meta != null && data.meta!.isNotEmpty) data.meta!,
-    if (data.genres != null && data.genres!.isNotEmpty) data.genres!,
   ];
   return parts.join(' · ');
 }

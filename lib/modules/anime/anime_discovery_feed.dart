@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 
@@ -8,12 +9,14 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_directory_screen.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/category_row.dart';
-import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/cinematic_hero.dart';
+import 'package:watchtower/modules/media/collection_cards.dart';
+import 'package:watchtower/modules/media/widgets/wave_pull_refresh.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
-import 'package:watchtower/modules/media/manga_genre_cards.dart';
-import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 /// AniList discovery feed. Every visual card is rendered by the same gallery
 /// renderer used by WatchExtensionHomeScreen and the component gallery.
@@ -287,101 +290,6 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
     );
   }
 
-  Widget _spotlightCarousel(BuildContext context) {
-    final items = home.trendingAnimes.take(6).toList(growable: false);
-    if (items.isEmpty) return const SizedBox.shrink();
-    final width = MediaQuery.sizeOf(context).width;
-    final height = ((width - AppUI.pagePadding(context) * 2) / 2.5)
-        .clamp(150.0, 220.0)
-        .toDouble();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppSectionHeader(title: context.l10n.anime_feed_featured),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
-          child: SizedBox(
-            height: height,
-            width: double.infinity,
-            child: AppCrossfadeCarousel(
-              itemCount: items.length,
-              clipRadius: 18,
-              itemBuilder: (context, index) {
-                final media = items[index];
-                return SizedBox.expand(
-                  child: GalleryComponentRenderer.card(
-                    _context(
-                      componentId: 'spotlight-discovery',
-                      items: [ContentItem.fromAnilist(media)],
-                      title: context.l10n.anime_feed_featured,
-                      onOpen: (_) => _open(media),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _twoRowGalleryGrid({
-    required BuildContext context,
-    required String title,
-    required List<ContentItem> items,
-    required ValueChanged<int> onOpen,
-    required VoidCallback onSeeAll,
-  }) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    final pagePadding = AppUI.pagePadding(context);
-    final visibleItems = items.take(8).toList(growable: false);
-    final tileWidth = math
-        .min(184.0, (MediaQuery.sizeOf(context).width - 48) / 2)
-        .toDouble();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppSectionHeader(
-          title: title,
-          actionLabel: 'Tout voir',
-          onAction: onSeeAll,
-        ),
-        SizedBox(
-          height: 188,
-          child: GridView.builder(
-            padding: EdgeInsets.symmetric(horizontal: pagePadding),
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisExtent: tileWidth,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 8,
-            ),
-            itemCount: visibleItems.length,
-            itemBuilder: (context, index) {
-              final item = visibleItems[index];
-              final covers = item.coverUrls.isNotEmpty
-                  ? item.coverUrls
-                  : [
-                      item.imageUrl ?? item.backdropUrl ?? item.posterUrl,
-                    ].whereType<String>().toList(growable: false);
-              return AnimeDirectoryCard(
-                title: item.title,
-                coverUrls: covers,
-                logoUrl: item.logoUrl,
-                showLogo: item.badge == 'Studio',
-                height: 84,
-                onTap: () => onOpen(index),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _worldSection({
     required BuildContext context,
     required List<ContentItem> countries,
@@ -436,12 +344,284 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
     );
   }
 
+  Widget _animeHero(BuildContext context) {
+    final items = home.trendingAnimes.take(10).toList(growable: false);
+    if (items.isEmpty) return const SizedBox.shrink();
+    return CinematicHero(
+      items: [
+        for (final media in items)
+          CinematicHeroItem(
+            title: media.displayTitle,
+            imageUrl: media.bannerImage ?? media.bestCover,
+            year: media.seasonYear?.toString(),
+            rating: media.averageScore == null
+                ? null
+                : media.averageScore! / 10,
+            overview: media.description,
+          ),
+      ],
+      onTap: (index) => _open(items[index]),
+      onLibraryPressed: () => context.push('/Library'),
+      onSearchPressed: () => context.push('/globalSearch'),
+    );
+  }
+
+  Widget _twoRowTagGrid({
+    required BuildContext context,
+    required String title,
+    required List<ContentItem> items,
+    required ValueChanged<int> onOpen,
+    required VoidCallback onSeeAll,
+  }) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    final pagePadding = AppUI.pagePadding(context);
+    final tileWidth = math
+        .min(190.0, (MediaQuery.sizeOf(context).width - 48) / 2)
+        .toDouble();
+    const tileHeight = 58.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          actionLabel: 'Tout >',
+          onAction: onSeeAll,
+        ),
+        SizedBox(
+          height: tileHeight * 2 + 8,
+          child: GridView.builder(
+            padding: EdgeInsets.symmetric(horizontal: pagePadding),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: tileWidth,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) => TagCard(
+              item: items[index],
+              width: tileWidth,
+              height: tileHeight,
+              compact: true,
+              onTap: () => onOpen(index),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _featuredStudioCard(
+    BuildContext context,
+    _StudioSpotlight featured,
+    double width,
+  ) {
+    final productions = home.allAnimes
+        .where(
+          (media) => media.studios.any((s) => s.id == featured.studio.id),
+        )
+        .take(3)
+        .toList(growable: false);
+    final entries = [
+      for (final media in productions)
+        CollectionEntry(
+          title: media.displayTitle,
+          meta: media.format,
+          thumbUrl: media.bestBackdrop ?? media.bestCover,
+          onTap: () => _open(media),
+        ),
+    ];
+    if (entries.isEmpty) {
+      entries.add(
+        CollectionEntry(
+          title: featured.item.title,
+          meta: 'Studio',
+          thumbUrl: featured.item.imageUrl,
+          onTap: () => _browse(
+            featured.studio.name,
+            _filter(null, studioId: featured.studio.id),
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: context.l10n.anime_feed_featured_studio,
+          actionLabel: 'Tout >',
+          onAction: () => context.push(
+            '/animeDirectory',
+            extra: AnimeDirectoryKind.studios,
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+          child: UniverseCarouselCard(
+            universes: entries,
+            width: width,
+            height: 170,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _popularStudiosRail(
+    BuildContext context,
+    List<_StudioSpotlight> studios,
+    double fullWidth,
+  ) {
+    if (studios.isEmpty) return const SizedBox.shrink();
+    final chunks = <List<_StudioSpotlight>>[
+      for (var i = 0; i < studios.length; i += 3)
+        studios.sublist(i, math.min(i + 3, studios.length)),
+    ];
+    final cardWidth = math.min(430.0, fullWidth);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: context.l10n.anime_feed_popular_studios,
+          actionLabel: 'Tout >',
+          onAction: () => context.push(
+            '/animeDirectory',
+            extra: AnimeDirectoryKind.studios,
+          ),
+        ),
+        SizedBox(
+          height: 185,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
+            itemCount: chunks.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final chunk = chunks[index];
+              return UniverseCarouselCard(
+                width: cardWidth,
+                height: 170,
+                universes: [
+                  for (final entry in chunk)
+                    CollectionEntry(
+                      title: entry.studio.name,
+                      meta: entry.item.meta,
+                      thumbUrl: entry.item.imageUrl,
+                      onTap: () => _browse(
+                        entry.studio.name,
+                        _filter(null, studioId: entry.studio.id),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _catalogueHeader(
+    BuildContext context,
+    List<_GenreSpotlight> genres,
+  ) {
+    final active = _selectedGenre != null;
+    return AppSectionHeader(
+      title: context.l10n.anime_feed_catalogue,
+      actionLabel: 'Tout >',
+      onAction: () => _browse(
+        context.l10n.anime_feed_popular_anime,
+        _filter(null),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AdaptiveOverlayMenuButton(
+            menuWidth: 260,
+            trigger: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Icon(
+                Broken.filter,
+                size: 20,
+                color: active ? Theme.of(context).colorScheme.primary : null,
+              ),
+            ),
+            contentBuilder: (close) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const AdaptiveOverlaySection(title: 'Genre'),
+                AdaptiveOverlayItem(
+                  icon: Broken.category,
+                  label: 'Tous',
+                  selected: _selectedGenre == null,
+                  onTap: () {
+                    close();
+                    setState(() => _selectedGenre = null);
+                  },
+                ),
+                for (final entry in genres)
+                  AdaptiveOverlayItem(
+                    icon: Broken.tag,
+                    label: entry.definition.label,
+                    selected:
+                        _selectedGenre ==
+                        (entry.definition.genre ?? entry.definition.label),
+                    onTap: () {
+                      close();
+                      setState(
+                        () => _selectedGenre =
+                            entry.definition.genre ?? entry.definition.label,
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+          AdaptiveOverlayMenuButton(
+            menuWidth: 240,
+            trigger: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Icon(Broken.more_2, size: 22),
+            ),
+            contentBuilder: (close) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AdaptiveOverlayItem(
+                  icon: Broken.refresh,
+                  label: 'Rafraîchir',
+                  onTap: () {
+                    close();
+                    unawaited(widget.onRefresh());
+                  },
+                ),
+                AdaptiveOverlayItem(
+                  icon: Broken.category,
+                  label: 'Tout >',
+                  onTap: () {
+                    close();
+                    _browse(
+                      context.l10n.anime_feed_popular_anime,
+                      _filter(null),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final genres = _genreChoices();
     final genreItems = genres.map((entry) => entry.item).toList();
     final countryItems = _countryItems(context.l10n);
-    final featuredGenres = genreItems.take(4).toList(growable: false);
     final firstCataloguePage = ref.watch(
       anilistBrowseProvider(_filter(null, page: 1)),
     );
@@ -474,36 +654,34 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                 ),
               )
               .toList(growable: false);
-    final fullCardWidth =
-        MediaQuery.sizeOf(context).width - AppUI.pagePadding(context) * 2;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final pagePadding = AppUI.pagePadding(context);
+    final fullCardWidth = screenWidth - pagePadding * 2;
     final studioEntries = _studioEntries();
-    final studioItems = studioEntries
-        .map((entry) => entry.item)
-        .toList(growable: false);
     final franchiseGroups = buildAnilistFranchiseGroups(home.allAnimes);
     final collectionGroups = buildAnilistCollectionGroups(home.allAnimes);
-    final studioFilter = studioEntries.isEmpty
-        ? _filter(null)
-        : _filter(null, studioId: studioEntries.first.studio.id);
-    final studioContent = studioItems.isEmpty
-        ? const <ContentItem>[]
-        : [studioItems.first];
 
-    return ExtensionAppleRefreshable(
+    return WavePullRefresh(
       onRefresh: widget.onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(
           parent: ClampingScrollPhysics(),
         ),
         slivers: [
+          SliverToBoxAdapter(child: _animeHero(context)),
           SliverToBoxAdapter(
-            child: HeroCarousel(
-              items: home.trendingAnimes.take(8).toList(growable: false),
-              onItemTap: _open,
-              topPadding: MediaQuery.paddingOf(context).top,
+            child: _gallerySection(
+              componentId: 'poster',
+              media: home.latestAnimes.take(12).toList(growable: false),
+              title: context.l10n.anime_feed_featured,
+              params: const {'width': 112},
+              onOpen: _open,
+              onSeeAll: () => _browse(
+                context.l10n.anime_feed_featured,
+                _filter(null, sort: 'START_DATE_DESC'),
+              ),
             ),
           ),
-          SliverToBoxAdapter(child: _spotlightCarousel(context)),
           SliverToBoxAdapter(
             child: _gallerySection(
               componentId: 'top-anime',
@@ -514,7 +692,9 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                 'subtitle': context.l10n.anime_feed_top10_subtitle,
                 'flat': true,
                 'fill': true,
-                'width': fullCardWidth,
+                'width': screenWidth,
+                'edgePadding': pagePadding,
+                'bleed': true,
               },
               onOpen: _open,
               onSeeAll: () => _browse(
@@ -590,13 +770,18 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
           if (franchiseGroups.isNotEmpty)
             SliverToBoxAdapter(
               child: _galleryItemsSection(
-                componentId: 'franchise',
+                componentId: 'collection',
                 items: [
                   for (final group in franchiseGroups)
                     _relationGroupItem(group, groupLabel: 'franchise'),
                 ],
                 title: context.l10n.anime_feed_franchises,
-                params: {'width': fullCardWidth, 'fill': true, 'flat': true},
+                params: {
+                  'width': fullCardWidth,
+                  'fill': true,
+                  'flat': true,
+                  'bigTitle': true,
+                },
                 onOpen: (index) => _browseRelationGroup(
                   franchiseGroups[index].representative.title,
                   franchiseGroups[index],
@@ -607,63 +792,24 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                 ),
               ),
             ),
-          if (studioContent.isNotEmpty)
+          if (studioEntries.isNotEmpty)
             SliverToBoxAdapter(
-              child: _galleryItemsSection(
-                componentId: 'studio',
-                items: studioContent,
-                title: context.l10n.anime_feed_featured_studio,
-                params: {'width': fullCardWidth, 'fill': true, 'flat': true},
-                onOpen: (_) => _browse(
-                  studioEntries.first.studio.name,
-                  studioFilter,
-                ),
-                onSeeAll: () => context.push(
-                  '/animeDirectory',
-                  extra: AnimeDirectoryKind.studios,
-                ),
+              child: _featuredStudioCard(
+                context,
+                studioEntries.first,
+                fullCardWidth,
               ),
             ),
-          if (studioItems.isNotEmpty)
+          if (studioEntries.isNotEmpty)
             SliverToBoxAdapter(
-              child: _twoRowGalleryGrid(
-                context: context,
-                title: context.l10n.anime_feed_popular_studios,
-                items: studioItems,
-                onOpen: (index) {
-                  final studio = studioEntries[index].studio;
-                  _browse(
-                    studio.name,
-                    _filter(null, studioId: studio.id),
-                  );
-                },
-                onSeeAll: () => context.push(
-                  '/animeDirectory',
-                  extra: AnimeDirectoryKind.studios,
-                ),
+              child: _popularStudiosRail(
+                context,
+                studioEntries,
+                fullCardWidth,
               ),
             ),
           SliverToBoxAdapter(
-            child: _galleryItemsSection(
-              componentId: 'genre',
-              items: featuredGenres,
-              title: context.l10n.anime_feed_featured_genres,
-              params: {'width': fullCardWidth, 'fill': true, 'flat': true},
-              onOpen: (index) {
-                final genre = genres[index].definition;
-                _browse(
-                  genre.label,
-                  _filter(genre.genre ?? genre.label),
-                );
-              },
-              onSeeAll: () => context.push(
-                '/animeDirectory',
-                extra: AnimeDirectoryKind.genres,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: _twoRowGalleryGrid(
+            child: _twoRowTagGrid(
               context: context,
               title: context.l10n.anime_feed_genres,
               items: genreItems,
@@ -684,47 +830,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
           SliverToBoxAdapter(
             child: _worldSection(context: context, countries: countryItems),
           ),
-          SliverToBoxAdapter(
-            child: AppSectionHeader(
-              title: context.l10n.anime_feed_catalogue,
-              actionLabel: context.l10n.common_see_all,
-              onAction: () => _browse(
-                context.l10n.anime_feed_popular_anime,
-                _filter(null),
-              ),
-            ),
-          ),
-          if (genres.isNotEmpty)
-            SliverPadding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppUI.pagePadding(context),
-              ),
-              sliver: SliverToBoxAdapter(
-                child: MangaTagsCard(
-                  width: fullCardWidth,
-                  compact: true,
-                  columns: 3,
-                  tags: [
-                    for (final entry in genres)
-                      MangaTagEntry(
-                        label: entry.definition.label,
-                        imageUrl: entry.definition.imageUrl,
-                        isSelected:
-                            _selectedGenre ==
-                            (entry.definition.genre ?? entry.definition.label),
-                        onTap: () {
-                          final selected =
-                              entry.definition.genre ?? entry.definition.label;
-                          setState(
-                            () => _selectedGenre =
-                                _selectedGenre == selected ? null : selected,
-                          );
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ),
+          SliverToBoxAdapter(child: _catalogueHeader(context, genres)),
           if (displayedCatalogue.isNotEmpty)
             SliverPadding(
               padding: EdgeInsets.symmetric(

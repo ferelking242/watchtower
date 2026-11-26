@@ -11950,7 +11950,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get anilist_tab_watch_order => 'Watch Order';
 
   @override
-  String get common_see_all => 'See all';
+  String get common_see_all => 'All >';
 
   @override
   String get anime_feed_featured => 'Featured';

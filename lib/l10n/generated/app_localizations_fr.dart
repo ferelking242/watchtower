@@ -9964,7 +9964,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get home_see_all => 'Voir tout';
 
   @override
-  String get home_view_all => 'Tout voir';
+  String get home_view_all => 'Tout >';
 
   @override
   String get home_favorite => 'Coup de cœur';
@@ -12099,7 +12099,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get anilist_tab_watch_order => 'Ordre de visionnage';
 
   @override
-  String get common_see_all => 'Tout voir';
+  String get common_see_all => 'Tout >';
 
   @override
   String get anime_feed_featured => 'À la une';

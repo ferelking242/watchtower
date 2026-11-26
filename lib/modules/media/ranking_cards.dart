@@ -60,6 +60,7 @@ class RankingSectionCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.labelTiles = false,
+    this.edgePadding = 0,
   });
 
   final List<RankingEntry> items;
@@ -68,12 +69,18 @@ class RankingSectionCard extends StatelessWidget {
   /// Force toutes les tuiles en mode « libellé » (genres, pays, décennies).
   final bool labelTiles;
 
+  /// Inner horizontal padding so the rail can span the whole screen while its
+  /// first/last card still aligns with the page gutter. Cards scroll behind
+  /// the screen edges instead of stopping inside a narrower box.
+  final double edgePadding;
+
   @override
   Widget build(BuildContext context) {
     return _RankingSectionCard(
       items: items,
       width: width,
       labelTiles: labelTiles,
+      edgePadding: edgePadding,
     );
   }
 }
@@ -88,6 +95,7 @@ class _RankingSectionCard extends StatelessWidget {
     required this.items,
     required this.width,
     this.labelTiles = false,
+    this.edgePadding = 0,
   });
 
   final List<RankingEntry> items;
@@ -95,6 +103,7 @@ class _RankingSectionCard extends StatelessWidget {
 
   /// Force toutes les tuiles en mode « libellé » (genres, pays, décennies).
   final bool labelTiles;
+  final double edgePadding;
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +111,7 @@ class _RankingSectionCard extends StatelessWidget {
       width: width,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: edgePadding),
         child: Row(
           children: [
             for (var i = 0; i < items.length; i++) ...[

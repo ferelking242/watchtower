@@ -21314,7 +21314,7 @@ abstract class AppLocalizations {
   /// No description provided for @common_see_all.
   ///
   /// In en, this message translates to:
-  /// **'See all'**
+  /// **'All >'**
   String get common_see_all;
 
   /// No description provided for @anime_feed_featured.

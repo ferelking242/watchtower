@@ -508,7 +508,7 @@ class TagCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Opacity(
-                opacity: compact ? .30 : 1,
+                opacity: compact ? .62 : 1,
                 child: ContentImage(
                   url: item.imageUrl ?? item.backdropUrl ?? item.posterUrl,
                   radius: 0,
@@ -520,9 +520,9 @@ class TagCard extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      accent.withValues(alpha: compact ? .54 : .20),
-                      Colors.black.withValues(alpha: compact ? .48 : .38),
-                      Colors.black.withValues(alpha: .78),
+                      accent.withValues(alpha: compact ? .30 : .16),
+                      Colors.black.withValues(alpha: compact ? .16 : .30),
+                      Colors.black.withValues(alpha: compact ? .52 : .72),
                     ],
                   ),
                 ),

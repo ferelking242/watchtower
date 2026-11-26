@@ -195,9 +195,29 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
-  /// Videos first: the watch hub carries films, series, anime and reels, so it
-  /// leads the dock, then each catalogue in content order.
+  /// Video catalogues lead the dock: film, series, anime, then manga, novels,
+  /// music and games.
   final items = [
+    '/MoviesLibrary',
+    '/SeriesLibrary',
+    '/AnimeLibrary',
+    '/MangaLibrary',
+    '/NovelLibrary',
+    '/MusicLibrary',
+    '/GameLibrary',
+    '/Library',
+    '/history',
+    '/updates',
+    '/marketplace',
+    '/browse',
+    '/trackerLibrary',
+    '/settings',
+    '/discover',
+  ];
+
+  /// Order shipped before the video catalogues were regrouped. Kept only so an
+  /// untouched install follows the new default instead of keeping Anime first.
+  static const _previousDefault = [
     '/AnimeLibrary',
     '/MoviesLibrary',
     '/SeriesLibrary',
@@ -241,7 +261,10 @@ class NavigationOrderState extends _$NavigationOrderState {
         (isar.settings.getSync(kSettingsId) ?? Settings()).navigationOrder
             ?.toList() ??
         [];
-    final order = stored.isEmpty || _sameOrder(stored, _legacyDefault)
+    final order =
+        stored.isEmpty ||
+            _sameOrder(stored, _legacyDefault) ||
+            _sameOrder(stored, _previousDefault)
         ? List<String>.from(items)
         : stored;
     return _checkMissingItems(order);

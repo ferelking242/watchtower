@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -153,7 +154,7 @@ class _WatchtowerSearchScreenState
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        icon: const Icon(Broken.arrow_left_2, size: 20),
         onPressed: () => Navigator.of(context).pop(),
       ),
       title: TextField(
@@ -171,20 +172,20 @@ class _WatchtowerSearchScreenState
           isDense: true,
           hintStyle: TextStyle(
             color: cs.onSurface.withValues(alpha: 0.40),
-            fontSize: 15,
+            fontSize: 16,
           ),
         ),
-        style: TextStyle(color: cs.onSurface, fontSize: 15),
+        style: TextStyle(color: cs.onSurface, fontSize: 16),
       ),
       actions: [
         if (_query.isNotEmpty)
           IconButton(
-            icon: Icon(Icons.close_rounded,
+            icon: Icon(Broken.close_circle,
                 size: 20, color: cs.onSurface.withValues(alpha: 0.55)),
             onPressed: _clearQuery,
           ),
         IconButton(
-          icon: Icon(Icons.mic_rounded,
+          icon: Icon(Broken.microphone,
               color: cs.onSurface.withValues(alpha: 0.55)),
           onPressed: () {},
         ),
@@ -305,7 +306,7 @@ class _EmptyState extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                       child: Row(
                         children: [
-                          const Icon(Icons.local_fire_department_rounded,
+                          const Icon(Broken.flash,
                               size: 18, color: Colors.orange),
                           const SizedBox(width: 6),
                           Text(
@@ -445,7 +446,7 @@ class _ResultsState extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.wifi_off_rounded,
+                  Icon(Broken.wifi,
                       size: 48,
                       color: cs.onSurface.withValues(alpha: 0.30)),
                   const SizedBox(height: 12),
@@ -470,7 +471,7 @@ class _ResultsState extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.search_off_rounded,
+                    Icon(Broken.search_status,
                         size: 56,
                         color: cs.onSurface.withValues(alpha: 0.28)),
                     const SizedBox(height: 12),
@@ -534,7 +535,7 @@ class _RecentChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.history_rounded,
+            Icon(Broken.clock,
                 size: 13, color: cs.onSurface.withValues(alpha: 0.45)),
             const SizedBox(width: 5),
             Text(
@@ -547,7 +548,7 @@ class _RecentChip extends StatelessWidget {
             const SizedBox(width: 5),
             GestureDetector(
               onTap: onDelete,
-              child: Icon(Icons.close_rounded,
+              child: Icon(Broken.close_circle,
                   size: 13, color: cs.onSurface.withValues(alpha: 0.40)),
             ),
           ],
@@ -646,7 +647,7 @@ class _RankedTabList extends StatelessWidget {
                       Row(
                         children: [
                           if (m.averageScore != null) ...[
-                            const Icon(Icons.star_rounded,
+                            const Icon(Broken.star_1,
                                 size: 12, color: Colors.amber),
                             const SizedBox(width: 3),
                             Text(
@@ -733,10 +734,10 @@ class _SearchResultTile extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
 
     final typeIcon = media.type == 'MANGA'
-        ? Icons.menu_book_rounded
+        ? Broken.book_1
         : media.format == 'MOVIE'
-            ? Icons.movie_rounded
-            : Icons.live_tv_rounded;
+            ? Broken.video_square
+            : Broken.monitor;
 
     final country = media.countryOfOrigin;
     final flagEmoji = country == 'JP'
@@ -774,7 +775,7 @@ class _SearchResultTile extends StatelessWidget {
                     width: 60,
                     height: 85,
                     color: cs.surfaceContainerHighest,
-                    child: Icon(Icons.image_not_supported_outlined,
+                    child: Icon(Broken.image,
                         color: cs.onSurface.withValues(alpha: 0.30)),
                   ),
           ),
@@ -807,7 +808,7 @@ class _SearchResultTile extends StatelessWidget {
                     ),
                     if (media.averageScore != null) ...[
                       const SizedBox(width: 8),
-                      const Icon(Icons.star_rounded,
+                      const Icon(Broken.star_1,
                           size: 13, color: Colors.amber),
                       const SizedBox(width: 2),
                       Text(
@@ -851,7 +852,7 @@ class _SearchResultTile extends StatelessWidget {
               border: Border.all(
                   color: cs.primary.withValues(alpha: 0.55), width: 1.5),
             ),
-            child: Icon(Icons.play_arrow_rounded,
+            child: Icon(Broken.play,
                 color: cs.primary, size: 20),
           ),
         ],
@@ -886,7 +887,7 @@ class _WatchSearchTab extends StatelessWidget {
                 color: cs.primary.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.play_circle_outline_rounded,
+              child: Icon(Broken.play_circle,
                   size: 40, color: cs.primary),
             ),
             const SizedBox(height: 20),
@@ -915,7 +916,7 @@ class _WatchSearchTab extends StatelessWidget {
                 '/globalSearch',
                 extra: (query, ItemType.anime),
               ),
-              icon: const Icon(Icons.tune_rounded, size: 18),
+              icon: const Icon(Broken.filter, size: 18),
               label: Text(context.l10n.home_search_open_watch),
               style: FilledButton.styleFrom(
                 backgroundColor: cs.primary,
@@ -932,7 +933,7 @@ class _WatchSearchTab extends StatelessWidget {
             if (!isDark)
               OutlinedButton.icon(
                 onPressed: () => context.push('/globalSearch'),
-                icon: const Icon(Icons.search_rounded, size: 18),
+                icon: const Icon(Broken.search_normal_1, size: 18),
                 label: Text(context.l10n.global_search),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
@@ -944,7 +945,7 @@ class _WatchSearchTab extends StatelessWidget {
             else
               OutlinedButton.icon(
                 onPressed: () => context.push('/globalSearch'),
-                icon: Icon(Icons.search_rounded,
+                icon: Icon(Broken.search_normal_1,
                     size: 18,
                     color: cs.onSurface.withValues(alpha: 0.65)),
                 label: Text(context.l10n.global_search,

@@ -6,7 +6,8 @@ import 'dart:async';
   import 'package:flutter_riverpod/flutter_riverpod.dart';
   import 'package:http/http.dart' as http;
 
-  import 'package:watchtower/modules/home/services/anilist_home_cache.dart';
+  import 'package:watchtower/modules/home/services/anilist_browse_cache.dart';
+import 'package:watchtower/modules/home/services/anilist_home_cache.dart';
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Studio model
@@ -1140,12 +1141,16 @@ import 'dart:async';
         topStudios: _parseStudios(data['topStudios']),
       );
       unawaited(AnilistHomeCache.instance.write(home));
+      anilistOfflineNotifier.value = false;
       return home;
     } catch (error) {
       // Keep discovery usable offline: the last good payload beats an error
       // wall, and the hub's images already come from their own disk cache.
       final cached = await AnilistHomeCache.instance.read();
-      if (cached != null) return cached;
+      if (cached != null) {
+        anilistOfflineNotifier.value = true;
+        return cached;
+      }
       rethrow;
     }
   }
@@ -1537,6 +1542,29 @@ Map<String, dynamic> buildAnilistBrowseRequest(AnilistBrowseFilter filter) {
 }
 
 Future<AnilistBrowsePage> fetchAnilistBrowsePage(
+  AnilistBrowseFilter filter, {
+  http.Client? client,
+}) async {
+  try {
+    final page = await _fetchAnilistBrowsePageOnline(filter, client: client);
+    if (client == null) {
+      unawaited(AnilistBrowseCache.instance.write(filter, page));
+    }
+    anilistOfflineNotifier.value = false;
+    return page;
+  } catch (error) {
+    if (client == null) {
+      final cached = await AnilistBrowseCache.instance.read(filter);
+      if (cached != null) {
+        anilistOfflineNotifier.value = true;
+        return cached;
+      }
+    }
+    rethrow;
+  }
+}
+
+Future<AnilistBrowsePage> _fetchAnilistBrowsePageOnline(
   AnilistBrowseFilter filter, {
   http.Client? client,
 }) async {

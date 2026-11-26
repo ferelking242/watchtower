@@ -698,7 +698,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         icon: const Icon(Broken.video_octagon),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
-          child: Text(l10n.watch),
+          child: Text(l10n.home_tab_anime),
         ),
       );
     }
@@ -949,7 +949,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       destMap['/AnimeLibrary'] = NavigationDestination(
         selectedIcon: const Icon(Broken.video_square),
         icon: const Icon(Broken.video_octagon),
-        label: l10n.watch,
+        label: l10n.home_tab_anime,
       );
     }
     if (dest.contains('/MoviesLibrary')) {
@@ -1288,7 +1288,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
       route: '/AnimeLibrary',
       icon: Broken.video_octagon,
       activeIcon: Broken.video_square,
-      tooltip: context.l10n.watch,
+      tooltip: context.l10n.home_tab_anime,
     ),
     (
       route: '/SeriesLibrary',
@@ -2105,7 +2105,7 @@ class _FloatingDockState extends State<_FloatingDock> {
           items.add(
             _DockItemData(
               route: '/AnimeLibrary',
-              label: l10n.watch,
+              label: l10n.home_tab_anime,
               icon: Broken.video_octagon,
               activeIcon: Broken.video_square,
             ),
@@ -2399,15 +2399,15 @@ class _FloatingDockState extends State<_FloatingDock> {
 
     if ((_menuOpen || sideDrawerOpen) && !inSubDock) {
       // The side menu is open: fold the floating dock into a single round
-      // back chip pinned to the bottom-right, clear of the menu sheet.
+      // back chip pinned to the bottom-left, clear of the menu sheet.
       final size = 52.0 * dockScale;
       return AnimatedContainer(
         duration: Duration(milliseconds: dockAnimMs),
         curve: Curves.easeInOut,
         height: totalHeight,
-        alignment: Alignment.centerRight,
+        alignment: Alignment.centerLeft,
         padding: EdgeInsets.only(
-          right: 16,
+          left: 16,
           bottom: _dockBottomPad + bottomPad * 0.5,
           top: 4,
         ),
@@ -2447,7 +2447,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                   ],
                 ),
                 child: Icon(
-                  Broken.arrow_right_2,
+                  Broken.arrow_left_2,
                   size: 22 * dockScale,
                   color: Theme.of(context).colorScheme.primary,
                 ),

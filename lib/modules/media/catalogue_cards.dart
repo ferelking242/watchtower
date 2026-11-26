@@ -118,7 +118,7 @@ class ProviderRail extends StatelessWidget {
         if (title != null && title!.trim().isNotEmpty)
           AppSectionHeader(
             title: title!,
-            actionLabel: onSeeAll == null ? null : 'Tout voir',
+            actionLabel: onSeeAll == null ? null : 'Tout >',
             onAction: onSeeAll,
           ),
         SizedBox(

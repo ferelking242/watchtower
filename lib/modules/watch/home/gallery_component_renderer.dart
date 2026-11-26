@@ -331,7 +331,7 @@ class GalleryComponentRenderer {
           title: title,
           subtitle: ctx.text('subtitle'),
           icon: ctx.icon,
-          actionLabel: showSeeAll ? 'Tout voir' : null,
+          actionLabel: showSeeAll ? 'Tout >' : null,
           onAction: showSeeAll ? ctx.onSeeAll : null,
           trailing: ctx.trailing,
         ),
@@ -349,7 +349,9 @@ class GalleryComponentRenderer {
     Widget card,
   ) {
     final padded = Padding(
-      padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+      padding: EdgeInsets.symmetric(
+        horizontal: ctx.flag('bleed') ? 0 : AppUI.pagePadding(context),
+      ),
       child: card,
     );
     final body = ctx.flag('fill') || _isResponsive(ctx)
@@ -703,6 +705,7 @@ class GalleryComponentRenderer {
           items: _rank(ctx, items),
           width: w ?? 430,
           labelTiles: ctx.flag('labelTiles'),
+          edgePadding: ctx.decimal('edgePadding') ?? 0,
         );
 
       // ── Collection rails ──
@@ -1248,7 +1251,7 @@ class GalleryComponentRenderer {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: ctx.onSeeAll == null ? null : 'Tout voir',
+          actionLabel: ctx.onSeeAll == null ? null : 'Tout >',
           onAction: ctx.onSeeAll,
           trailing: ctx.trailing,
         ),
@@ -1399,6 +1402,7 @@ class GalleryComponentRenderer {
           data: _collection(ctx, item, onTap: onTap),
           sideEntries: _sideEntries(item, onTap),
           width: w ?? 420,
+          bigTitle: ctx.flag('bigTitle'),
           flat: ctx.flag('flat', fallback: true),
         );
       case 'franchise':
@@ -1857,6 +1861,7 @@ class GalleryComponentRenderer {
           items: _rank(ctx, items),
           width: w ?? 430,
           labelTiles: ctx.flag('labelTiles'),
+          edgePadding: ctx.decimal('edgePadding') ?? 0,
         );
       case GalleryComponentFamily.mangaChapter:
         return MangaChapterCard(

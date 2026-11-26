@@ -1447,6 +1447,7 @@ void _openSection(
   List<MManga> initialItems = const [],
   String? cardStyle,
   String? seeAllPage,
+  bool startSelection = false,
 }) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -1457,6 +1458,7 @@ void _openSection(
         initialExtensionItems: initialItems,
         cardStyle: cardStyle,
         seeAllPage: seeAllPage,
+        startSelection: startSelection,
       ),
     ),
   );
@@ -1741,6 +1743,17 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
       itemType: widget.source.itemType,
       onSelected: (action) =>
           CatalogBulkDownload.handleMenu(context, ref, widget.source, items, action),
+      onRefresh: _retry,
+      onSelectMultiple: () => _openSection(
+        context,
+        source: widget.source,
+        id: _listId,
+        title: _title,
+        initialItems: items,
+        cardStyle: widget.section.cardStyle,
+        seeAllPage: widget.section.seeAllPage,
+        startSelection: true,
+      ),
     );
 
     return ExtensionLayoutPreview(

@@ -44,6 +44,7 @@ import 'package:watchtower/services/extension_worker_count.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 import 'app_ui_components.dart';
+import 'cinematic_hero.dart';
 import 'content_cards.dart';
 import 'tmdb_genres_screen.dart';
 import 'widgets/bulk_enqueue_controller.dart';
@@ -663,249 +664,24 @@ class DiscoverMovies extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
-      480.0,
-      590.0,
-    );
     final heroMovies = movies.take(10).toList(growable: false);
-    // Hero fills its box fully; the action column sits low but inside it.
-    return SizedBox(
-      width: double.infinity,
-      height: heroHeight,
-      child: heroMovies.isEmpty
-          ? const AppShimmerBlock(radius: 0)
-          : AppCrossfadeCarousel(
-              itemCount: heroMovies.length,
-              onItemTap: (index) => onMoviePressed(heroMovies[index]),
-              clipRadius: 0,
-              itemBuilder: (context, index) {
-                final movie = heroMovies[index];
-                final imagePath = movie.bannerImage ?? movie.bestCover;
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (imagePath != null)
-                      ExtendedImage.network(
-                        imagePath,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                        cache: true,
-                        cacheMaxAge: kHubCoverCacheMaxAge,
-                      )
-                    else
-                      const AppShimmerBlock(radius: 0),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: [0, .42, 1],
-                          colors: [
-                            Color(0x52000000),
-                            Color(0x15000000),
-                            Color(0xE6000000),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: Row(
-                            children: [
-                              Image.asset(
-                                'assets/app_icons/icon.png',
-                                width: 28,
-                                height: 28,
-                                fit: BoxFit.contain,
-                              ),
-                              const Spacer(),
-                              _HeroIconButton(
-                                icon: Broken.bookmark,
-                                onPressed: onLibraryPressed,
-                                tooltip: context.l10n.media_library,
-                              ),
-                              const SizedBox(width: 8),
-                              if (onLiveTVPressed != null) ...[
-                                _HeroLiveButton(onPressed: onLiveTVPressed!),
-                                const SizedBox(width: 8),
-                              ],
-                              const SizedBox(width: 8),
-                              _HeroIconButton(
-                                icon: Broken.search_normal,
-                                onPressed: onSearchPressed,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 24,
-                      right: 24,
-                      bottom: 40,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Tags — bottom-left, above the title
-                          Wrap(
-                            spacing: 7,
-                            runSpacing: 6,
-                            children: [
-                              if ((movie.releaseDate ??
-                                          movie.firstAirDate ??
-                                          '')
-                                      .length >=
-                                  4)
-                                _HeroMetaChip(
-                                  label:
-                                      (movie.releaseDate ?? movie.firstAirDate!)
-                                          .substring(0, 4),
-                                ),
-                              if (movie.voteAverage != null)
-                                _HeroMetaChip(
-                                  icon: Broken.star,
-                                  label: movie.voteAverage!.toStringAsFixed(1),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 9),
-                          Text(
-                            movie.displayTitle,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              height: 1.05,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          if (movie.overview?.isNotEmpty == true) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              movie.overview!,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                height: 1.3,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
-                          // FlixQuest-style hero: rectangular Play button in
-                          // the column, no centered disc/notch.
-                          const SizedBox(height: 14),
-                          AppHeroPlayPill(onTap: () => onMoviePressed(movie)),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-    );
-  }
-}
-
-class _HeroIconButton extends StatelessWidget {
-  const _HeroIconButton({
-    required this.icon,
-    required this.onPressed,
-    this.tooltip,
-  });
-
-  final IconData icon;
-  final VoidCallback? onPressed;
-  final String? tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: .22),
-      shape: const CircleBorder(),
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _HeroMetaChip extends StatelessWidget {
-  const _HeroMetaChip({required this.label, this.icon});
-
-  final String label;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .14),
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Colors.white.withValues(alpha: .14)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, color: Colors.amberAccent, size: 12),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroLiveButton extends StatelessWidget {
-  const _HeroLiveButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: .38),
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Broken.radio, color: Colors.white, size: 19),
-              const SizedBox(width: 7),
-              Text(
-                context.l10n.media_live_tv,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+    return CinematicHero(
+      items: [
+        for (final movie in heroMovies)
+          CinematicHeroItem(
+            title: movie.displayTitle,
+            imageUrl: movie.bannerImage ?? movie.bestCover,
+            year: (movie.releaseDate ?? movie.firstAirDate ?? '').length >= 4
+                ? (movie.releaseDate ?? movie.firstAirDate!).substring(0, 4)
+                : null,
+            rating: movie.voteAverage,
+            overview: movie.overview,
           ),
-        ),
-      ),
+      ],
+      onTap: (index) => onMoviePressed(heroMovies[index]),
+      onLibraryPressed: onLibraryPressed,
+      onSearchPressed: onSearchPressed,
+      onLiveTvPressed: onLiveTVPressed,
     );
   }
 }
@@ -2668,6 +2444,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     this.cardStyle,
     this.seeAllPage,
     this.initialSearchQuery = '',
+    this.startSelection = false,
     super.key,
   }) : path = '',
        initialItems = const [],
@@ -2676,8 +2453,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
        extensionSectionId = sectionId,
        anilistFilter = null,
        initialAnilistItems = const [],
-       onOpenAnilist = null,
-       startSelection = false;
+       onOpenAnilist = null;
 
   /// Paginated destination for an AniList filter. Reuses the same catalogue
   /// shell (sort/filter sheet, infinite scroll, grid) as the film/série

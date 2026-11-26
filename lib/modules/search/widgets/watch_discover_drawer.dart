@@ -101,7 +101,12 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                 },
               ),
             ),
-            const SizedBox(height: 6),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.45),
+            ),
+            const SizedBox(height: 8),
             const _ThemeModeToggleBox(),
             _SleepTimerTile(onClose: onClose),
             _DrawerBottomActions(onClose: onClose),
