@@ -49,6 +49,7 @@ import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/startup_breadcrumb.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart'
     show hasPendingExtensionUpdate, installExtensionUpdate;
@@ -161,6 +162,9 @@ Future<void> _startupStage(
   Duration timeout = const Duration(seconds: 20),
 }) async {
   final sw = Stopwatch()..start();
+  // Written before the step runs: a native abort inside it leaves this phase
+  // on disk for the next launch to report.
+  await StartupBreadcrumb.mark(name);
   try {
     await body().timeout(timeout);
   } catch (e, st) {
@@ -525,8 +529,13 @@ void main(List<String> args) async {
           // launch for CPU and RAM (see the note in main()); starting them here
           // still means the first extension call finds a warm pool.
           unawaited(
-            Future<void>.delayed(const Duration(seconds: 2), () {
-              return getIsolateService.start();
+            Future<void>.delayed(const Duration(seconds: 2), () async {
+              await StartupBreadcrumb.mark('extension pool');
+              try {
+                await getIsolateService.start();
+              } finally {
+                await StartupBreadcrumb.mark(StartupBreadcrumb.cleanPhase);
+              }
             }).then((_) {
               debugPrint(
                 '[startup] extension workers ready '
@@ -642,6 +651,14 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   } catch (_) {}
   AppLogger.setLoggingEnabled(logsEnabled);
   await AppLogger.init();
+  final diedIn = await StartupBreadcrumb.takeUncleanPhase();
+  if (diedIn != null) {
+    AppLogger.log(
+      'previous launch ended during "$diedIn" without reaching the first '
+      'frame — a native abort or a kill, not a Dart exception',
+      logLevel: LogLevel.warning,
+    );
+  }
   // Session marker, crash classification and the UI-stall watchdog. Runs even
   // when the user turned file logging off: it writes one small JSON file and
   // is what makes the next launch able to say whether this one died.

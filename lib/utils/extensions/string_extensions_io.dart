@@ -60,9 +60,22 @@ extension StringExtensions on String {
   /// splitting a rune. Apply it to a name *before* the extension is appended.
   String truncateToBytes(int maxBytes) {
     if (utf8.encode(this).length <= maxBytes) return this;
-    var end = length;
-    while (end > 0 && utf8.encode(substring(0, end)).length > maxBytes) {
-      end--;
+    // One pass over the runes: re-encoding the growing prefix for every
+    // candidate length was quadratic, and a long episode title froze the
+    // download screen while it computed.
+    var bytes = 0;
+    var end = 0;
+    for (final rune in runes) {
+      final runeBytes = rune < 0x80
+          ? 1
+          : rune < 0x800
+              ? 2
+              : rune < 0x10000
+                  ? 3
+                  : 4;
+      if (bytes + runeBytes > maxBytes) break;
+      bytes += runeBytes;
+      end += rune > 0xFFFF ? 2 : 1;
     }
     return substring(0, end);
   }

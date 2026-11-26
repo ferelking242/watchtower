@@ -136,6 +136,9 @@ class GetIsolateService {
   final Map<String, _ExtensionWorker> _sourceWorkers = {};
   int _nextWorker = 0;
 
+  /// Pool size the lazy growth loop aims for; 0 stops it.
+  int _targetWorkerCount = 0;
+
   /// Service types that must fail fast because they sit on the tap→play path
   /// or share the source's single runtime with it. See the timeout in [get].
   static bool _fastFailService(String? serviceType) =>
@@ -216,16 +219,61 @@ class GetIsolateService {
         }
       }
     });
-    final workerCount = getRecommendedExtensionWorkerCount();
+    // One worker answers the first extension call. Spawning the whole pool
+    // here (up to four isolates, each with its own QuickJS runtime, Rust
+    // handle and intl tables) was the largest CPU/memory spike of the launch,
+    // and on a mid-range phone it is the moment the process aborted with a
+    // corrupted native chunk. The rest of the pool grows afterwards, one
+    // worker at a time, so a single spawn never competes with the launch.
     try {
-      for (var i = 0; i < workerCount; i++) {
-        _workers.add(await _spawnWorker(rootToken, _browserPort!));
-      }
+      _workers.add(await _spawnWorker(rootToken, _browserPort!));
     } catch (_) {
       await stop();
       rethrow;
     }
     _isRunning = true;
+    _targetWorkerCount = getRecommendedExtensionWorkerCount();
+    unawaited(_growPool());
+  }
+
+  /// Adds the remaining workers after the first frame has settled.
+  ///
+  /// Growth is best-effort: a failure keeps the workers already running
+  /// instead of tearing the pool down, and [stop] cancels the loop.
+  Future<void> _growPool() async {
+    while (_isRunning && _workers.length < _targetWorkerCount) {
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final token = _rootIsolateToken;
+      final browserPort = _browserPort;
+      if (!_isRunning ||
+          token == null ||
+          browserPort == null ||
+          _workers.length >= _targetWorkerCount) {
+        return;
+      }
+      try {
+        final worker = await _spawnWorker(token, browserPort);
+        // `stop()` may have run while the handshake was in flight: keep the
+        // new isolate out of a pool that no longer exists.
+        if (!_isRunning || !identical(_browserPort, browserPort)) {
+          worker.sendPort?.send('dispose');
+          worker.isolate?.kill(priority: Isolate.immediate);
+          await worker.receiveSub?.cancel();
+          worker.receivePort?.close();
+          return;
+        }
+        _workers.add(worker);
+      } catch (e, st) {
+        AppLogger.log(
+          'Extension worker growth stopped at ${_workers.length}: $e',
+          logLevel: LogLevel.warning,
+          tag: LogTag.extension_,
+          error: e,
+          stackTrace: st,
+        );
+        return;
+      }
+    }
   }
 
   Future<_ExtensionWorker> _spawnWorker(
@@ -867,6 +915,7 @@ class GetIsolateService {
       return;
     }
 
+    _targetWorkerCount = 0;
     final workers = List<_ExtensionWorker>.from(_workers);
     _workers.clear();
     _sourceWorkers.clear();

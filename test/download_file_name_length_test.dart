@@ -40,6 +40,14 @@ void main() {
       expect(utf8.encode(truncated).length, lessThanOrEqualTo(5));
       expect(truncated, 'éé');
     });
+
+    test('keeps surrogate pairs whole', () {
+      // '🎬' is four UTF-8 bytes but two UTF-16 code units: the truncation
+      // index must count code units, not runes.
+      final truncated = ('🎬' * 4).truncateToBytes(9);
+      expect(truncated, '🎬🎬');
+      expect(utf8.encode(truncated).length, 8);
+    });
   });
 
   group('long episode title keeps the HLS intermediates within NAME_MAX', () {

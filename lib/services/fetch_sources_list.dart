@@ -279,9 +279,11 @@ Future<void> fetchSourcesList({
         .filter()
         .itemTypeEqualTo(itemType)
         .findAll();
-    for (final existing in allExisting) {
-      existing.hydrateExtendedMetadata();
-    }
+    // Hydration (base64 + JSON decode of the metadata blob) used to run for
+    // every row of the item type on the UI isolate: a few thousand decodes per
+    // refresh, which is the 2 s freeze seen while the catalogue loads. Only
+    // the rows that are about to be written back need it, because
+    // `persistedAdditionalParams` rebuilds the blob from the hydrated fields.
     final existingMap = <int, Source>{
       for (final s in allExisting)
         if (s.id != null) s.id!: s,
@@ -317,6 +319,7 @@ Future<void> fetchSourcesList({
       if (autoUpdateExtensions) {
         toAutoUpdate.add(source);
       } else {
+        existing.hydrateExtendedMetadata();
         if (layoutVersionBumped) {
           existing.pendingUiLayoutVersion = source.uiLayoutVersion;
         }
