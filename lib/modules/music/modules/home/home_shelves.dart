@@ -8,16 +8,20 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/dialogs/select_device_dialog.dart';
+import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/extensions/duration.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
+import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/album/album_card.dart';
+import 'package:watchtower/modules/music/modules/home/home_rail.dart';
 import 'package:watchtower/modules/music/modules/playlist/playlist_card.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/connect/connect.dart';
 import 'package:watchtower/modules/music/provider/history/history.dart';
+import 'package:watchtower/modules/music/provider/history/recent.dart';
 import 'package:watchtower/modules/music/provider/history/top.dart';
 import 'package:watchtower/modules/music/provider/history/top/albums.dart';
 import 'package:watchtower/modules/music/provider/history/top/tracks.dart';
@@ -126,6 +130,15 @@ class HomeLatestReleasesRail extends HookConsumerWidget {
         ? ref.watch(metadataPluginSavedArtistsProvider)
         : null;
 
+    if (releases.isLoading) {
+      return const HomeRailSkeleton(
+        itemWidth: kHomeReleaseCardWidth,
+        itemHeight: kHomeReleaseCardHeight,
+        itemCount: 3,
+        titleWidth: 180,
+      );
+    }
+
     final items = releases.asData?.value.items ?? const <SpotubeSimpleAlbumObject>[];
     if (items.isEmpty) return const SizedBox.shrink();
 
@@ -155,6 +168,12 @@ class HomeLatestReleasesRail extends HookConsumerWidget {
         AppSectionHeader(
           title: context.l10n.new_releases,
           leadingIcon: Broken.flash_1,
+          trailing: IconButton(
+            tooltip: context.l10n.refresh,
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Broken.refresh, size: 18),
+            onPressed: () => ref.invalidate(metadataPluginAlbumReleasesProvider),
+          ),
         ),
         SizedBox(
           height: kHomeReleaseCardHeight,
@@ -406,6 +425,16 @@ class HomeQuickPicksRail extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(historyTopTracksProvider(_homeDuration));
+
+    if (history.isLoading) {
+      return const HomeRailSkeleton(
+        itemWidth: 320,
+        itemHeight: 64,
+        itemCount: 4,
+        titleWidth: 150,
+      );
+    }
+
     final items =
         history.asData?.value.items ?? const <PlaybackHistoryTrack>[];
 
@@ -415,8 +444,10 @@ class HomeQuickPicksRail extends HookConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
-          title: context.l10n.recently_played,
-          leadingIcon: Broken.clock_1,
+          title: context.l10n.top_tracks,
+          leadingIcon: Broken.chart_2,
+          actionLabel: context.l10n.browse_all,
+          onAction: () => context.navigateTo(const StatsStreamsRoute()),
         ),
         for (final item in items.take(6))
           _QuickPickTile(track: item.track, plays: item.count),
@@ -549,9 +580,18 @@ class HomePopularArtistsRail extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watching the async value keeps the rail in sync with the notifier's
-    // aggregated artist list.
-    ref.watch(historyTopTracksProvider(_homeDuration));
+    final topTracks = ref.watch(historyTopTracksProvider(_homeDuration));
+
+    if (topTracks.isLoading) {
+      return const HomeRailSkeleton(
+        itemWidth: 108,
+        itemHeight: 140,
+        itemCount: 5,
+        circular: true,
+        titleWidth: 160,
+      );
+    }
+
     final artists = ref
         .watch(historyTopTracksProvider(_homeDuration).notifier)
         .artists
@@ -581,12 +621,25 @@ class HomeFollowedArtistsRail extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final saved = ref.watch(metadataPluginSavedArtistsProvider);
-    final artists = saved.asData?.value.items ?? const <SpotubeFullArtistObject>[];
+
+    if (saved.isLoading) {
+      return const HomeRailSkeleton(
+        itemWidth: 108,
+        itemHeight: 140,
+        itemCount: 5,
+        circular: true,
+        titleWidth: 130,
+      );
+    }
+
+    final artists =
+        saved.asData?.value.items ?? const <SpotubeFullArtistObject>[];
 
     if (artists.isEmpty) return const SizedBox.shrink();
 
     return _ArtistRail(
       title: context.l10n.following,
+      onSeeAll: () => context.navigateTo(const UserArtistsRoute()),
       tiles: [
         for (final artist in artists.take(12))
           _ArtistTile(
@@ -696,11 +749,20 @@ class HomePopularAlbumsRail extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final topAlbums = ref.watch(historyTopAlbumsProvider(_homeDuration));
-    final albums = topAlbums.asData?.value.items ?? const <PlaybackHistoryAlbum>[];
+    final cardWidth = AppUI.horizontalCardWidth(context);
+
+    if (topAlbums.isLoading) {
+      return HomeRailSkeleton(
+        itemWidth: cardWidth,
+        itemHeight: cardWidth * 1.5,
+        titleWidth: 170,
+      );
+    }
+
+    final albums =
+        topAlbums.asData?.value.items ?? const <PlaybackHistoryAlbum>[];
 
     if (albums.isEmpty) return const SizedBox.shrink();
-
-    final cardWidth = AppUI.horizontalCardWidth(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -785,8 +847,18 @@ class HomeGenresRail extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final browse = ref.watch(metadataPluginBrowseSectionsProvider);
-    final sections =
-        browse.asData?.value.items ?? const <SpotubeBrowseSectionObject<Object>>[];
+
+    if (browse.isLoading) {
+      return const HomeRailSkeleton(
+        itemWidth: 216,
+        itemHeight: 124,
+        itemCount: 3,
+        titleWidth: 170,
+      );
+    }
+
+    final sections = browse.asData?.value.items ??
+        const <SpotubeBrowseSectionObject<Object>>[];
 
     if (sections.isEmpty) return const SizedBox.shrink();
 
@@ -897,4 +969,205 @@ String? _sectionImage(List<Object> items) {
     }
   }
   return null;
+}
+
+// ── Shortcuts ────────────────────────────────────────────────────────────────
+
+/// Spotify-style shortcut tiles at the top of the home.
+///
+/// They are the four places people go first (downloads, local files, their
+/// playlists, stats) and give the page an entry point that does not depend on a
+/// metadata plugin answering quickly.
+class HomeQuickAccessGrid extends StatelessWidget {
+  const HomeQuickAccessGrid({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    final entries = [
+      (
+        id: 'downloads',
+        icon: Broken.document_download,
+        label: context.l10n.downloads,
+        onTap: () => context.navigateTo(const UserDownloadsRoute()),
+      ),
+      (
+        id: 'local',
+        icon: Broken.folder,
+        label: context.l10n.local_library,
+        onTap: () => context.navigateTo(const UserLocalLibraryRoute()),
+      ),
+      (
+        id: 'playlists',
+        icon: Broken.music_playlist,
+        label: context.l10n.playlists,
+        onTap: () => context.navigateTo(const UserPlaylistsRoute()),
+      ),
+      (
+        id: 'stats',
+        icon: Broken.chart_2,
+        label: context.l10n.stats,
+        onTap: () => context.navigateTo(const StatsRoute()),
+      ),
+    ];
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppUI.pagePadding(context),
+        10,
+        AppUI.pagePadding(context),
+        0,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tileWidth = (constraints.maxWidth - 10) / 2;
+          return Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final entry in entries)
+                SizedBox(
+                  width: tileWidth,
+                  height: 56,
+                  child: TvPressable(
+                    borderRadius: 10,
+                    onTap: entry.onTap,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: _releasePalette(
+                                entry.id,
+                                cs,
+                                theme.brightness,
+                              ).background,
+                              borderRadius: const BorderRadius.horizontal(
+                                left: Radius.circular(10),
+                              ),
+                            ),
+                            child: Icon(entry.icon, size: 22, color: Colors.white),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              entry.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Continue listening ───────────────────────────────────────────────────────
+
+/// Albums and playlists the user opened most recently.
+class HomeContinueRail extends HookConsumerWidget {
+  const HomeContinueRail({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(recentlyPlayedItems);
+
+    if (history.isLoading) {
+      return const HomeRailSkeleton(itemWidth: 150, itemHeight: 225, itemCount: 4);
+    }
+
+    final items = <Object>[
+      for (final entry in history.asData?.value ?? const <HistoryTableData>[])
+        if (entry.playlist != null)
+          entry.playlist!
+        else if (entry.album != null)
+          entry.album!,
+    ];
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return HorizontalPlaybuttonCardView<Object>(
+      title: context.l10n.recently_played,
+      leadingIcon: Broken.clock_1,
+      items: items,
+      hasNextPage: false,
+      isLoadingNextPage: false,
+      onFetchMore: () {},
+    );
+  }
+}
+
+// ── Plugin browse rails ──────────────────────────────────────────────────────
+
+/// Every shelf the metadata plugin advertises (charts, moods, new releases,
+/// editor picks…), one rail each, with a "browse all" action where the plugin
+/// supports paging.
+///
+/// The previous home only rendered the plugin's sections as genre tiles, so
+/// most of what the plugin offered never reached the page.
+class HomePluginBrowseRails extends HookConsumerWidget {
+  const HomePluginBrowseRails({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final browse = ref.watch(metadataPluginBrowseSectionsProvider);
+
+    if (browse.isLoading) {
+      return const HomeRailSkeleton(itemWidth: 150, itemHeight: 225, itemCount: 5);
+    }
+
+    if (browse.hasError) return const SizedBox.shrink();
+
+    final sections = browse.asData?.value.items ??
+        const <SpotubeBrowseSectionObject<Object>>[];
+
+    final withItems = [
+      for (final section in sections)
+        if (section.items.isNotEmpty) section,
+    ];
+
+    if (withItems.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final section in withItems)
+          HorizontalPlaybuttonCardView<Object>(
+            title: section.title,
+            items: section.items,
+            hasNextPage: false,
+            isLoadingNextPage: false,
+            onFetchMore: () {},
+            actionLabel: section.browseMore ? context.l10n.browse_all : null,
+            onAction: section.browseMore
+                ? () => context.navigateTo(
+                      HomeBrowseSectionItemsRoute(
+                        sectionId: section.id,
+                        section: section,
+                      ),
+                    )
+                : null,
+          ),
+      ],
+    );
+  }
 }

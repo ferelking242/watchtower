@@ -314,11 +314,11 @@ class SourcedTrack extends BasicSourcedTrack {
 
   String? get url {
     final preferences = ref.read(audioSourcePresetsProvider);
-
-    return getUrlOfQuality(
-      preferences.presets[preferences.selectedStreamingContainerIndex],
-      preferences.selectedStreamingQualityIndex,
+    final preset = preferences.presets.elementAtOrNull(
+      preferences.selectedStreamingContainerIndex,
     );
+    if (preset == null) return null;
+    return getUrlOfQuality(preset, preferences.selectedStreamingQualityIndex);
   }
 
   /// Returns the URL of the track based on the codec and quality preferences.
@@ -332,8 +332,10 @@ class SourcedTrack extends BasicSourcedTrack {
     int qualityIndex,
   ) {
     if (sources.isEmpty) return null;
+    if (preset.qualities.isEmpty) return null;
 
-    final quality = preset.qualities[qualityIndex];
+    final quality =
+        preset.qualities[qualityIndex.clamp(0, preset.qualities.length - 1)];
 
     final exactMatch = sources.firstWhereOrNull(
       (source) {
@@ -377,7 +379,9 @@ class SourcedTrack extends BasicSourcedTrack {
     SpotubeAudioSourceContainerPreset preset,
     int qualityIndex,
   ) {
-    return getStreamOfQuality(preset, qualityIndex)?.url;
+    if (preset.qualities.isEmpty) return null;
+    final index = qualityIndex.clamp(0, preset.qualities.length - 1);
+    return getStreamOfQuality(preset, index)?.url;
   }
 
   SpotubeAudioSourceContainerPreset? get qualityPreset {

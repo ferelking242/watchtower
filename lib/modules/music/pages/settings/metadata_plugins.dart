@@ -6,6 +6,7 @@ import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffo
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/modules/metadata_plugins/default_plugin_picker.dart';
 import 'package:watchtower/modules/music/modules/metadata_plugins/installed_plugin.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -89,15 +90,16 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
   }
 }
 
-/// Which plugin fills each slot, as one compact row per ability. Switching is
-/// done from the per-plugin overflow menu, so these rows stay read-only.
-class _DefaultsSection extends StatelessWidget {
+/// Which plugin fills each slot, as one row per ability. Tapping a row opens
+/// the picker for that slot, so switching provider no longer requires hunting
+/// for the per-plugin overflow menu further up the page.
+class _DefaultsSection extends ConsumerWidget {
   const _DefaultsSection({required this.state});
 
   final MetadataPluginState state;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SectionCardWithHeading(
       heading: context.l10n.defaults,
       icon: Broken.setting_2,
@@ -106,11 +108,21 @@ class _DefaultsSection extends StatelessWidget {
           icon: Broken.discount_shape,
           label: context.l10n.metadata,
           value: state.defaultMetadataPluginConfig?.name,
+          onTap: () => showDefaultPluginPicker(
+            context,
+            ref,
+            ability: PluginAbilities.metadata,
+          ),
         ),
         _DefaultRow(
           icon: Broken.musicnote,
           label: context.l10n.audio_source,
           value: state.defaultAudioSourcePluginConfig?.name,
+          onTap: () => showDefaultPluginPicker(
+            context,
+            ref,
+            ability: PluginAbilities.audioSource,
+          ),
         ),
       ],
     );
@@ -122,37 +134,48 @@ class _DefaultRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String? value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: cs.onSurfaceVariant),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontSize: 14)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value ?? context.l10n.none,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                fontSize: 13,
-                color: value == null ? cs.onSurfaceVariant : cs.primary,
-                fontWeight: value == null ? null : FontWeight.w600,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: cs.onSurfaceVariant),
+            const SizedBox(width: 12),
+            Text(label, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value ?? context.l10n.none,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: value == null ? cs.onSurfaceVariant : cs.primary,
+                  fontWeight: value == null ? null : FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Icon(
+              Broken.arrow_right_3,
+              size: 16,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ],
+        ),
       ),
     );
   }

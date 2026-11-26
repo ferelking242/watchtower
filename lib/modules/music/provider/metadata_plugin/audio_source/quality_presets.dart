@@ -26,6 +26,63 @@ class AudioSourcePresetsState with _$AudioSourcePresetsState {
       _$AudioSourcePresetsStateFromJson(json);
 }
 
+/// Containers used when a plugin reports no presets at all.
+///
+/// A preset is what maps a stream to a URL, so an empty list made every track
+/// unplayable. The generic lossy container keeps playback working with the
+/// streams the plugin actually returns.
+final kFallbackAudioSourcePresets = <SpotubeAudioSourceContainerPreset>[
+  SpotubeAudioSourceContainerPreset.lossy(
+    type: SpotubeMediaCompressionType.lossy,
+    name: 'mp4',
+    qualities: [
+      SpotubeAudioLossyContainerQuality(bitrate: 320000),
+      SpotubeAudioLossyContainerQuality(bitrate: 192000),
+      SpotubeAudioLossyContainerQuality(bitrate: 128000),
+    ],
+  ),
+];
+
+/// Keeps the selected container/quality inside the presets the current plugin
+/// actually offers. The selection is persisted per plugin, so switching to a
+/// plugin with fewer containers (or a plugin update dropping a quality) left an
+/// out-of-range index behind and playback threw on the first track.
+AudioSourcePresetsState _clampToPresets(AudioSourcePresetsState state) {
+  final presets = state.presets;
+  if (presets.isEmpty) return state;
+
+  final container =
+      state.selectedStreamingContainerIndex.clamp(0, presets.length - 1);
+  final quality = presets[container].qualities.isEmpty
+      ? 0
+      : state.selectedStreamingQualityIndex.clamp(
+          0,
+          presets[container].qualities.length - 1,
+        );
+  final downloadContainer =
+      state.selectedDownloadingContainerIndex.clamp(0, presets.length - 1);
+  final downloadQuality = presets[downloadContainer].qualities.isEmpty
+      ? 0
+      : state.selectedDownloadingQualityIndex.clamp(
+          0,
+          presets[downloadContainer].qualities.length - 1,
+        );
+
+  if (container == state.selectedStreamingContainerIndex &&
+      quality == state.selectedStreamingQualityIndex &&
+      downloadContainer == state.selectedDownloadingContainerIndex &&
+      downloadQuality == state.selectedDownloadingQualityIndex) {
+    return state;
+  }
+
+  return state.copyWith(
+    selectedStreamingContainerIndex: container,
+    selectedStreamingQualityIndex: quality,
+    selectedDownloadingContainerIndex: downloadContainer,
+    selectedDownloadingQualityIndex: downloadQuality,
+  );
+}
+
 class AudioSourceAvailableQualityPresetsNotifier
     extends Notifier<AudioSourcePresetsState> {
   @override
@@ -68,17 +125,14 @@ class AudioSourceAvailableQualityPresetsNotifier
         final persistedStateStr =
             preferences.getString("audioSourceState-${audioSourceConfig.slug}");
 
-        if (persistedStateStr != null) {
-          state =
-              AudioSourcePresetsState.fromJson(jsonDecode(persistedStateStr))
-                  .copyWith(
-            presets: audioSource.audioSource.supportedPresets,
-          );
-        } else {
-          state = AudioSourcePresetsState(
-            presets: audioSource.audioSource.supportedPresets,
-          );
-        }
+        final reported = audioSource.audioSource.supportedPresets;
+        final presets = reported.isEmpty ? kFallbackAudioSourcePresets : reported;
+
+        final restored = persistedStateStr != null
+            ? AudioSourcePresetsState.fromJson(jsonDecode(persistedStateStr))
+            : AudioSourcePresetsState();
+
+        state = _clampToPresets(restored.copyWith(presets: presets));
       });
     });
   }

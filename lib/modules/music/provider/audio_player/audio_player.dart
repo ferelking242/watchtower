@@ -13,6 +13,7 @@ import 'package:watchtower/modules/music/provider/audio_player/state.dart';
 import 'package:watchtower/modules/music/provider/blacklist_provider.dart';
 import 'package:watchtower/modules/music/provider/database/database.dart';
 import 'package:watchtower/modules/music/provider/discord_provider.dart';
+import 'package:watchtower/modules/music/provider/server/server.dart';
 import 'package:watchtower/modules/music/provider/server/sourced_track_provider.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
@@ -41,6 +42,15 @@ String? _userAgentForUrl(String url) {
 
 class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
   BlackListNotifier get _blacklist => ref.read(blacklistProvider.notifier);
+
+  /// [SpotubeMedia] embeds the local playback-server port in its URI, so the
+  /// server has to be listening before any media is built. Without this the
+  /// first play of a session produced `http://127.0.0.1:0/stream/<id>` and
+  /// stayed silent.
+  Future<void> _ensurePlaybackServer() async {
+    if (SpotubeMedia.serverPort != 0) return;
+    await ref.read(serverProvider.future);
+  }
 
   void _assertAllowedTracks(Iterable<SpotubeTrackObject> tracks) {
     assert(
@@ -257,6 +267,7 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
     bool allowDuplicates = false,
   }) async {
     _assertAllowedTracks(tracks);
+    await _ensurePlaybackServer();
     if (state.tracks.length == 1) {
       return addTracks(tracks);
     }
@@ -293,6 +304,7 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
 
   Future<void> addTrack(SpotubeTrackObject track) async {
     _assertAllowedTrack(track);
+    await _ensurePlaybackServer();
 
     if (_blacklist.contains(track)) return;
     if (state.tracks.any((element) => _compareTracks(element, track))) return;
@@ -313,6 +325,7 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
 
   Future<void> addTracks(Iterable<SpotubeTrackObject> tracks) async {
     _assertAllowedTracks(tracks);
+    await _ensurePlaybackServer();
 
     tracks = _blacklist.filter(tracks).toList();
     state = state.copyWith(
@@ -391,6 +404,7 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
     bool autoPlay = false,
   }) async {
     _assertAllowedTracks(tracks);
+    await _ensurePlaybackServer();
 
     final medias = _blacklist
         .filter(tracks)

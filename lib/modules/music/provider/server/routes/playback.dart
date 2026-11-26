@@ -13,6 +13,7 @@ import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/models/parser/range_headers.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/audio_player/state.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/audio_source/quality_presets.dart';
 
 import 'package:watchtower/modules/music/provider/server/active_track_sources.dart';
 import 'package:watchtower/modules/music/provider/server/sourced_track_provider.dart';
@@ -66,7 +67,7 @@ class ServerPlaybackRoutes {
     return join(
       await UserPreferencesNotifier.getMusicCacheDir(),
       ServiceUtils.sanitizeFilename(
-        '${track.query.name} - ${track.query.artists.map((d) => d.name).join(",")} (${track.info.id}).${track.qualityPreset!.getFileExtension()}',
+        '${track.query.name} - ${track.query.artists.map((d) => d.name).join(",")} (${track.info.id}).${(track.qualityPreset ?? kFallbackAudioSourcePresets.first).getFileExtension()}',
       ),
     );
   }
@@ -114,7 +115,9 @@ class ServerPlaybackRoutes {
       return dio_lib.Response(
         statusCode: 200,
         headers: Headers.fromMap({
-          "content-type": ["audio/${track.qualityPreset!.name}"],
+          "content-type": [
+            "audio/${(track.qualityPreset ?? kFallbackAudioSourcePresets.first).name}"
+          ],
           "content-length": ["$fileLength"],
           "accept-ranges": ["bytes"],
           "content-range": ["bytes 0-$fileLength/$fileLength"],
@@ -161,7 +164,9 @@ class ServerPlaybackRoutes {
       return dio_lib.Response<Uint8List>(
         statusCode: 200,
         headers: Headers.fromMap({
-          "content-type": ["audio/${track.qualityPreset!.name}"],
+          "content-type": [
+            "audio/${(track.qualityPreset ?? kFallbackAudioSourcePresets.first).name}"
+          ],
           "content-length": ["${cachedFileLength - 1}"],
           "accept-ranges": ["bytes"],
           "content-range": [
@@ -265,7 +270,11 @@ class ServerPlaybackRoutes {
 
         await trackPartialCacheFile.rename(trackCacheFile.path);
 
-        if (track.qualityPreset!.getFileExtension() == "weba") return;
+        if ((track.qualityPreset ?? kFallbackAudioSourcePresets.first)
+                .getFileExtension() ==
+            "weba") {
+          return;
+        }
 
         final imageBytes = await ServiceUtils.downloadImage(
           track.query.album.images.asUrlString(

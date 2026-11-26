@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shelf/shelf_io.dart';
@@ -20,24 +19,29 @@ final serverProvider = FutureProvider(
     final pipeline = ref.watch(pipelineProvider);
     final router = ref.watch(serverRouterProvider);
 
-    // When connect port is -1, we need to generate a random port
-    // but we shouldn't reset it if it's already been set (caused by a state change)
-    if (connectPort == -1) {
-      if (SpotubeMedia.serverPort == 0) {
-        final port = Random().nextInt(17500) + 5000;
-        SpotubeMedia.serverPort = port;
+    final handler = pipeline.addHandler(router.call);
+    final address =
+        enabledRemoteConnect ? InternetAddress.anyIPv4 : InternetAddress.loopbackIPv4;
+
+    // Port -1 means "pick one automatically". Binding port 0 lets the OS hand
+    // out a free port and reporting `server.port` keeps the URL the player
+    // builds in sync with the socket that is actually listening: a hard-coded
+    // random port could already be taken, and the bind failure left every
+    // `SpotubeMedia` pointing at a dead port (silent playback failures).
+    Future<HttpServer> bind(int port) async {
+      try {
+        return await serve(handler, address, port);
+      } on SocketException {
+        if (port == 0) rethrow;
+        AppLogger.log.w(
+          'Playback server could not bind port $port, falling back to a free port',
+        );
+        return serve(handler, address, 0);
       }
-    } else {
-      SpotubeMedia.serverPort = connectPort;
     }
 
-    final server = await serve(
-      pipeline.addHandler(router.call),
-      enabledRemoteConnect
-          ? InternetAddress.anyIPv4
-          : InternetAddress.loopbackIPv4,
-      SpotubeMedia.serverPort,
-    );
+    final server = await bind(connectPort == -1 ? 0 : connectPort);
+    SpotubeMedia.serverPort = server.port;
 
     AppLogger.log.t(
       'Playback server at http://${server.address.host}:${server.port}',

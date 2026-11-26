@@ -134,21 +134,29 @@ class _HomePageState extends ConsumerState<HomePage> {
     final personal = _filter != MusicHomeFilter.music;
 
     if (!authenticated) {
-      return [
-        const SliverToBoxAdapter(child: _SignInCard()),
-        const SliverToBoxAdapter(child: HomeGenresRail()),
+      return const [
+        SliverToBoxAdapter(child: _SignInCard()),
+        SliverToBoxAdapter(child: HomeQuickAccessGrid()),
+        SliverToBoxAdapter(child: HomeGenresRail()),
       ];
     }
 
     return [
+      // Shortcuts come first: they never wait on a plugin round-trip, so the
+      // page has usable content the instant it opens.
+      const SliverToBoxAdapter(child: HomeQuickAccessGrid()),
       SliverToBoxAdapter(
         child: HomeLatestReleasesRail(followingOnly: following),
       ),
-      if (following)
+      if (following) ...[
         const SliverToBoxAdapter(child: HomeFollowedArtistsRail()),
-      if (!following) ...[
-        if (personal)
-          const SliverToBoxAdapter(child: HomeQuickPicksRail()),
+        const SliverToBoxAdapter(child: HomeContinueRail()),
+        const SliverToBoxAdapter(child: HomePopularArtistsRail()),
+      ] else ...[
+        const SliverToBoxAdapter(child: HomeContinueRail()),
+        if (personal) const SliverToBoxAdapter(child: HomeQuickPicksRail()),
+        // Every shelf the plugin advertises, each with its own "browse all".
+        const SliverToBoxAdapter(child: HomePluginBrowseRails()),
         const SliverToBoxAdapter(child: HomePopularArtistsRail()),
         const SliverToBoxAdapter(child: HomePopularAlbumsRail()),
         const SliverToBoxAdapter(child: HomePlaylistsRail()),

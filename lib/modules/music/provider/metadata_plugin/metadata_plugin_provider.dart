@@ -84,6 +84,18 @@ class MetadataPluginState {
   }
 }
 
+class _PluginEntry {
+  const _PluginEntry({
+    required this.config,
+    required this.selectedForMetadata,
+    required this.selectedForAudioSource,
+  });
+
+  final PluginConfiguration config;
+  final bool selectedForMetadata;
+  final bool selectedForAudioSource;
+}
+
 class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   AppDatabase get database => ref.read(databaseProvider);
 
@@ -119,13 +131,9 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   Future<MetadataPluginState> toStatePlugins(
     List<PluginsTableData> plugins,
   ) async {
-    int defaultMetadataPlugin = -1;
-    int defaultAudioSourcePlugin = -1;
-    final pluginConfigs = <PluginConfiguration>[];
+    final entries = <_PluginEntry>[];
 
-    for (int i = 0; i < plugins.length; i++) {
-      final plugin = plugins[i];
-
+    for (final plugin in plugins) {
       final pluginConfig = PluginConfiguration(
         name: plugin.name,
         author: plugin.author,
@@ -183,12 +191,37 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         continue;
       }
 
-      pluginConfigs.add(pluginConfig);
+      entries.add(
+        _PluginEntry(
+          config: pluginConfig,
+          selectedForMetadata: plugin.selectedForMetadata,
+          selectedForAudioSource: plugin.selectedForAudioSource,
+        ),
+      );
+    }
 
-      if (plugin.selectedForMetadata) {
+    // The marketplace used to list two builds of the same provider (a legacy
+    // JS plugin and the current Hetu one), so the installed list showed
+    // "Deezer" or "YouTube Music" twice. Keep one row per plugin name: the copy
+    // that fills a slot wins, otherwise the newest version.
+    final unique = <String, _PluginEntry>{};
+    for (final entry in entries) {
+      final key = entry.config.name.toLowerCase();
+      final existing = unique[key];
+      unique[key] = existing == null ? entry : _preferEntry(existing, entry);
+    }
+
+    final pluginConfigs = <PluginConfiguration>[];
+    int defaultMetadataPlugin = -1;
+    int defaultAudioSourcePlugin = -1;
+
+    for (final entry in unique.values) {
+      pluginConfigs.add(entry.config);
+
+      if (entry.selectedForMetadata) {
         defaultMetadataPlugin = pluginConfigs.length - 1;
       }
-      if (plugin.selectedForAudioSource) {
+      if (entry.selectedForAudioSource) {
         defaultAudioSourcePlugin = pluginConfigs.length - 1;
       }
     }
@@ -198,6 +231,20 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       defaultMetadataPlugin: defaultMetadataPlugin,
       defaultAudioSourcePlugin: defaultAudioSourcePlugin,
     );
+  }
+
+  _PluginEntry _preferEntry(_PluginEntry a, _PluginEntry b) {
+    final aHoldsSlot = a.selectedForMetadata || a.selectedForAudioSource;
+    final bHoldsSlot = b.selectedForMetadata || b.selectedForAudioSource;
+    if (aHoldsSlot != bHoldsSlot) return bHoldsSlot ? b : a;
+
+    try {
+      return Version.parse(b.config.version) > Version.parse(a.config.version)
+          ? b
+          : a;
+    } catch (_) {
+      return a;
+    }
   }
 
   Future<void> _loadDefaultPlugins(MetadataPluginState pluginState) async {
