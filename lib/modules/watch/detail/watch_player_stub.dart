@@ -23,6 +23,8 @@ class WatchInlinePlayer {
   set onPrevEpisode(VoidCallback? _) {}
   // ignore: avoid_setters_without_getters
   set onNextEpisode(VoidCallback? _) {}
+  // ignore: avoid_setters_without_getters
+  set onNextEntry(VoidCallback? _) {}
 
   // Chapter list + tap — no-op on web
   // ignore: avoid_setters_without_getters

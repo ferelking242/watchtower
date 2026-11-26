@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
@@ -8,18 +10,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:isar_community/isar.dart';
 import 'package:lottie/lottie.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
+import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
+import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/watch/detail/download/watch_download_sheet.dart';
+import 'package:watchtower/services/watch_comments_store.dart';
+import 'package:watchtower/services/watch_local_recommendations.dart';
+import 'package:watchtower/services/watch_resume_store.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -365,12 +375,85 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     _player.title = widget.manga.name ?? '';
     _player.reset();
     _player.loadedChapterId = chapter.id;
+    // Drop the previous episode's start position immediately so it cannot leak
+    // into this one; the post-frame callback fills in the resume target.
+    _player.startPosition = null;
     if (mounted) setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      // Resume the episode where the user left it. Moving from a finished
+      // episode to the next one (or picking any episode in the list) must land
+      // on the saved timestamp, not at 00:00 — the user's "ep 2 at 30%".
+      final chapterId = chapter.id;
+      if (chapterId != null) {
+        final resume = await readWatchResume(
+          widget.manga.name ?? '',
+          chapterId,
+        );
+        if (resume != null && resume.ms > 0 && !resume.completed) {
+          _player.startPosition = Duration(milliseconds: resume.ms);
+        }
+      }
       if (!mounted) return;
       await _player.load(ref: ref, chapter: chapter);
       if (mounted) setState(() {});
     });
+  }
+
+  /// Jumps to the *next library entry* of the same medium — the following
+  /// downloaded/added title — and resumes it where the user left off.
+  ///
+  /// Used when the current title has no further episode to play (the "next
+  /// episode" button would otherwise be a dead end), and directly by the
+  /// long-press on that button.
+  Future<void> _openNextLibraryEntry() async {
+    final currentId = widget.manga.id;
+    final entries = isar.mangas
+        .where()
+        .findAllSync()
+        .where(
+          (m) =>
+              m.favorite == true &&
+              m.itemType == widget.manga.itemType &&
+              m.id != null,
+        )
+        .toList()
+      // Newest first, matching how a download-driven library reads.
+      ..sort((a, b) => (b.dateAdded ?? 0).compareTo(a.dateAdded ?? 0));
+    final idx = entries.indexWhere((m) => m.id == currentId);
+    if (idx < 0 || idx >= entries.length - 1) {
+      if (mounted) botToast(context.l10n.media_no_episode);
+      return;
+    }
+    final next = entries[idx + 1];
+
+    // Resume the next entry on the episode the user last watched there.
+    int? resumeChapterId;
+    Duration? resumePosition;
+    final history = isar.historys
+        .where()
+        .mangaIdEqualTo(next.id!)
+        .findAllSync()
+      ..sort((a, b) => (b.updatedAt ?? 0).compareTo(a.updatedAt ?? 0));
+    if (history.isNotEmpty) {
+      final chapterId = history.first.chapterId;
+      if (chapterId != null) {
+        final resume = await readWatchResume(next.name ?? '', chapterId);
+        if (resume != null && resume.ms > 0 && !resume.completed) {
+          resumeChapterId = chapterId;
+          resumePosition = Duration(milliseconds: resume.ms);
+        }
+      }
+    }
+    if (!mounted) return;
+    context.push(
+      '/manga-reader/detail',
+      extra: MangaDetailArgs(
+        next.id!,
+        resumeChapterId: resumeChapterId,
+        resumePosition: resumePosition,
+      ),
+    );
   }
 
   // ─── ACTIONS ────────────────────────────────────────────────────────────────
@@ -437,9 +520,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     _player.onPrevEpisode = (curIdx > 0)
         ? () => _loadEpisodeInBanner(sorted[curIdx - 1])
         : null;
-    _player.onNextEpisode = (curIdx >= 0 && curIdx < sorted.length - 1)
-        ? () => _loadEpisodeInBanner(sorted[curIdx + 1])
-        : null;
+    // Only the episodes actually *downloaded* are playable when the user keeps
+    // a partial library (e.g. 5 of Naruto's 250 episodes). "Next" must walk
+    // those, never attempt a chapter whose video is not on disk. The sorted
+    // list is ascending (ep 1 first), so the next playable episode is the first
+    // downloaded index after the cursor; when there is none the button falls
+    // back to the next library entry instead of a dead end.
+    final downloaded = ref.watch(downloadedChapterIdsProvider);
+    final playableIdx = _playableEpisodeIndices(sorted, downloaded);
+    _player.onNextEpisode = _nextPlayableEpisode(sorted, curIdx, playableIdx);
+    // Long-press → next library entry. Always available: the whole point is to
+    // leave this title, even when it still has episodes left.
+    _player.onNextEntry = _openNextLibraryEntry;
     _player.chapters     = sorted;
     _player.onEpisodeTap = _loadEpisodeInBanner;
 
@@ -2270,6 +2362,41 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return result;
   }
 
+  /// Indices in [sorted] whose episode has a downloaded video on disk.
+  ///
+  /// When *nothing* is downloaded the title is streamed, so every episode is
+  /// playable and the whole list is returned — "next" then simply walks the
+  /// episodes in order.
+  List<int> _playableEpisodeIndices(List<Chapter> sorted, Set<int> downloaded) {
+    final indices = <int>[];
+    for (var i = 0; i < sorted.length; i++) {
+      final id = sorted[i].id;
+      if (id != null && downloaded.contains(id)) indices.add(i);
+    }
+    if (indices.isEmpty) {
+      return [for (var i = 0; i < sorted.length; i++) i];
+    }
+    return indices;
+  }
+
+  /// The "next" action for the currently loaded episode.
+  ///
+  /// Walks to the next *playable* (downloaded) episode. When the current title
+  /// has no further playable episode left — the user finished the last one they
+  /// downloaded — it jumps to the next library entry rather than trying to
+  /// stream an episode that is not on disk.
+  VoidCallback? _nextPlayableEpisode(
+    List<Chapter> sorted,
+    int curIdx,
+    List<int> playableIdx,
+  ) {
+    if (curIdx < 0) return null;
+    for (final i in playableIdx) {
+      if (i > curIdx) return () => _loadEpisodeInBanner(sorted[i]);
+    }
+    return _openNextLibraryEntry;
+  }
+
   int _epNum(String? name, int fallback) {
     if (name == null || name.isEmpty) return fallback;
     // Try "Ep. N" / "Ep N" / "Episode N" pattern first
@@ -3152,11 +3279,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ],
       );
 
-  /// Memoized so rebuilds do not re-fire the extension call: a fresh
-  /// future on every build serialized getRecommendations behind the
-  /// per-source queue each time the screen rebuilt.
-  Future<List<Map<String, dynamic>>>? _recommendationsFuture;
-
   /// Latch kept so a manual un-gate from the tab listener (legacy builds)
   /// can never stall an already-fired request.
   bool _recommendationsRequested = false;
@@ -3166,12 +3288,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   bool _commentsRequested = false;
 
   Widget _buildRecommendationsTab() {
-    // Pour vous : appel via l'extension getRecommendations (API native MovieBox).
-    final _recSrc = getSource(
-      widget.manga.lang ?? '',
-      widget.manga.source ?? '',
-      widget.manga.sourceId,
-    );
+    // "Pour vous" is computed from the library, not from the network: the
+    // titles the user already keeps offline share genres (thriller, adventure,
+    // …) with this one, and those are what get suggested. Downloaded titles
+    // rank first, so the shelf always offers something watchable.
+    final recs = localRecommendationsFor(widget.manga);
 
     Widget _empty() => Center(
           child: Padding(
@@ -3200,107 +3321,77 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ),
         );
 
-    if (_recSrc == null) return _empty();
+    if (recs.isEmpty) return _empty();
 
-    // "Pour vous" et la vidéo se chargent en parallèle : la future démarre
-    // dès le premier build (TabBarView construit les deux onglets d'un coup).
-    // Le registre d'appels par source garde `getVideoList` en priorité
-    // (bucket 0 devant les appels décoratifs), donc cette requête ne peut
-    // pas retarder le démarrage de la lecture.
-
-    _recommendationsFuture ??= getIsolateService
-        .get<List<dynamic>>(
-          url: widget.manga.link ?? '',
-          source: _recSrc,
-          serviceType: 'getRecommendations',
-        )
-        .then(
-          (raw) => raw
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList(),
-          onError: (Object error, StackTrace stack) {
-            // A transient failure must not pin the tab to "empty" for the
-            // rest of the screen's life — allow the next build to retry.
-            _recommendationsFuture = null;
-            Error.throwWithStackTrace(error, stack);
-          },
-        )
-        // A stuck source would otherwise leave the grid shimmering forever.
-        // Fail the future so the retry path above (and the "empty" state) can
-        // take over instead of an infinite skeleton.
-        .timeout(
-          const Duration(seconds: 20),
-          onTimeout: () {
-            _recommendationsFuture = null;
-            throw TimeoutException('getRecommendations timed out');
-          },
-        );
-
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _recommendationsFuture,
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return GridView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.62,
-            ),
-            itemCount: 9,
-            itemBuilder: (_, _) => _SkeletonBox(radius: 8, aspect: null),
-          );
-        }
-        final recs = snap.data;
-        if (recs == null || recs.isEmpty) return _empty();
-
-        return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.62,
-          ),
-          itemCount: recs.length,
-          itemBuilder: (_, i) {
-            final rec    = recs[i];
-            final imgUrl = rec['imageUrl'] as String?;
-            final title  = (rec['name'] as String?) ?? '';
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: imgUrl != null
-                        ? cachedNetworkImage(
-                            imageUrl: imgUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                          )
-                        : Container(
-                            color: _card,
-                            child: Icon(Icons.movie_outlined,
-                                color: _grey, size: 28),
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.62,
+      ),
+      itemCount: recs.length,
+      itemBuilder: (_, i) {
+        final rec = recs[i];
+        final entry = rec.manga;
+        return InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _openRecommendation(entry),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _recommendationCover(entry),
+                      if (rec.downloadedEpisodes > 0)
+                        Positioned(
+                          right: 4,
+                          bottom: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Broken.document_download,
+                                    size: 9, color: Colors.white),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${rec.downloadedEpisodes}',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
                           ),
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  title,
-                  style: TextStyle(
-                      color: _textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            );
-          },
+              ),
+              const SizedBox(height: 5),
+              Text(
+                entry.name ?? '',
+                style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         );
       },
     );
@@ -3431,6 +3522,47 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
 
+  Widget _recommendationCover(Manga entry) {
+    final custom = entry.customCoverImage;
+    if (custom != null && custom.isNotEmpty) {
+      return Image.memory(
+        Uint8List.fromList(custom),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+      );
+    }
+    final imageUrl = entry.imageUrl;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return cachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    }
+    return Container(
+      color: _card,
+      child: Icon(Icons.movie_outlined, color: _grey, size: 28),
+    );
+  }
+
+  /// Opens a suggested title on the episode the user last watched there.
+  void _openRecommendation(Manga entry) {
+    if (entry.id == null) return;
+    final history = isar.historys
+        .where()
+        .mangaIdEqualTo(entry.id!)
+        .findAllSync()
+      ..sort((a, b) => (b.updatedAt ?? 0).compareTo(a.updatedAt ?? 0));
+    final chapterId = history.isEmpty ? null : history.first.chapterId;
+    context.push(
+      '/manga-reader/detail',
+      extra: MangaDetailArgs(entry.id!, resumeChapterId: chapterId),
+    );
+  }
+
   Widget _buildCommentsTab() {
     final source = getSource(
       widget.manga.lang ?? '',
@@ -3448,6 +3580,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       grey: _grey,
       faint: _faint,
       textPrimary: _textPrimary,
+      chapterId: _player.loadedChapterId,
       // Chargé en parallèle de la vidéo (même runtime priorisé) : pas de
       // gating sur l'état du lecteur.
       autoLoad: true,
@@ -3641,6 +3774,10 @@ class _CommentsSection extends StatefulWidget {
   final Color faint;
   final Color textPrimary;
 
+  /// Episode whose comments are shown, used to read the offline cache written
+  /// when the episode was downloaded.
+  final int? chapterId;
+
   /// The comments tab is built eagerly by the TabBarView even while hidden.
   /// Fetching immediately made `getComments` occupy the source's single
   /// non-reentrant runtime before `getVideoList` could start. When false the
@@ -3658,6 +3795,7 @@ class _CommentsSection extends StatefulWidget {
     required this.grey,
     required this.faint,
     required this.textPrimary,
+    this.chapterId,
     this.autoLoad = true,
   });
 
@@ -3701,6 +3839,9 @@ class _CommentsSectionState extends State<_CommentsSection> {
       setState(() { _comments = []; _loading = false; });
       return;
     }
+    final cached = widget.chapterId == null
+        ? null
+        : await readWatchComments(widget.title, widget.chapterId!);
     try {
       final raw = await getIsolateService.get<List<dynamic>>(
         url: widget.url, source: src,
@@ -3711,12 +3852,25 @@ class _CommentsSectionState extends State<_CommentsSection> {
           .whereType<Map>()
           .map((e) => _Comment.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-      setState(() { _comments = mapped; _loading = false; });
+      setState(() {
+        _comments = mapped.isEmpty ? _fromCache(cached) : mapped;
+        _loading = false;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() { _comments = []; _loading = false; });
+      setState(() {
+        // Offline: a downloaded episode carries the comments captured at
+        // download time, so the tab is not empty for content on disk.
+        _comments = _fromCache(cached);
+        _loading = false;
+      });
     }
   }
+
+  List<_Comment> _fromCache(List<dynamic>? cached) => (cached ?? const [])
+      .whereType<Map>()
+      .map((e) => _Comment.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
 
 
   void _toggleLike(_Comment comment) {

@@ -10,6 +10,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/watch/detail/download/video_file_meta.dart';
+import 'package:watchtower/services/downloaded_video_preference.dart';
 
 /// Reduces a quality label to its resolution digits (e.g. `"1080p60"` → `1080`).
 ///
@@ -192,6 +193,43 @@ Set<String> downloadedResolutionKeysForSource(int? sourceId, String? link) {
     return keys;
   } catch (_) {
     // A damaged row must not hide the whole format list.
+    return const {};
+  }
+}
+
+/// Renditions already downloaded for the catalogue item [link] of [source],
+/// keyed like [videoQualityKey] (`720p`, or `720p|vf` when the label carries a
+/// language).
+///
+/// A resolution alone cannot say whether a *specific* rendition is on disk: an
+/// episode downloaded in `720p VF` must still offer `720p VOSTFR`, and the
+/// language box must list both. Callers use these keys to decide which chips to
+/// hide and which languages to offer.
+Set<String> downloadedRenditionKeysForSource(int? sourceId, String? link) {
+  final url = link?.trim();
+  if (sourceId == null || url == null || url.isEmpty) return const {};
+  try {
+    final manga = isar.mangas
+        .filter()
+        .sourceIdEqualTo(sourceId)
+        .and()
+        .linkEqualTo(url)
+        .findFirstSync();
+    final mangaId = manga?.id;
+    if (mangaId == null) return const {};
+    final keys = <String>{};
+    for (final chapter
+        in isar.chapters.where().mangaIdEqualTo(mangaId).findAllSync()) {
+      final chapterId = chapter.id;
+      if (chapterId == null) continue;
+      final download = isar.downloads.getSync(chapterId);
+      if (download?.isDownload != true) continue;
+      final label = _downloadQualityLabel(download!);
+      if (label.trim().isEmpty) continue;
+      keys.add(videoQualityKey(label));
+    }
+    return keys;
+  } catch (_) {
     return const {};
   }
 }

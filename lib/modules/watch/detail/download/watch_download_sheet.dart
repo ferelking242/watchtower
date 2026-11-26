@@ -7,6 +7,7 @@ import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart'
     show chapterPreferredLang, prepareVideoQualityDownloadChapter;
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/services/downloaded_video_preference.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
@@ -330,16 +331,12 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     for (final row in sorted) {
       if (seen.add(row.label)) deduped.add(row);
     }
-    // Une résolution déjà en bibliothèque sort des chips : le moteur refuse le
-    // doublon, autant ne pas le proposer. Filtrage APRÈS le dépliage HLS, car
-    // celui-ci recrée des lignes par variante.
-    final downloaded = _downloadedKeys;
-    _filmRows = downloaded.isEmpty
-        ? deduped
-        : [
-            for (final row in deduped)
-              if (!downloaded.contains(resolutionKey(row.label))) row,
-          ];
+    // Un rendu déjà en bibliothèque sort des chips : le moteur refuse le
+    // doublon, autant ne pas le proposer. Le filtrage compare la résolution ET
+    // la langue, donc un `720p VF` téléchargé laisse bien `720p VOSTFR`
+    // disponible. Il a lieu APRÈS le dépliage HLS, qui recrée des lignes par
+    // variante.
+    _filmRows = deduped.where((row) => !_isRenditionDownloaded(row.label)).toList();
     if (_filmQuality == null ||
         !_filmRows.any((row) => row.label == _filmQuality)) {
       _filmQuality = _filmRows.isEmpty ? null : _filmRows.last.label;
@@ -357,6 +354,24 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     }
     return s.toList()..sort();
   }
+
+  /// Renditions already on disk, keyed by [videoQualityKey] so a `720p VF`
+  /// download does not hide the `720p VOSTFR` chip.
+  Set<String> get _downloadedRenditions =>
+      _downloadedRenditionCache ??= downloadedRenditionKeysForSource(
+        widget.manga.sourceId,
+        widget.manga.link,
+      );
+  Set<String>? _downloadedRenditionCache;
+
+  /// True when this exact rendition (resolution **and** language) is already
+  /// downloaded, so the chip would only ever produce a duplicate.
+  ///
+  /// Compared through [videoQualityKey] rather than the bare resolution: a
+  /// `720p VF` file must not hide the `720p VOSTFR` chip, and a language-less
+  /// `720p` download only hides the language-less chip.
+  bool _isRenditionDownloaded(String quality) =>
+      _downloadedRenditions.contains(videoQualityKey(quality));
 
   /// Raw season numbers, never a formatted label: [_selectedSeason] is parsed
   /// back out of these, so localizing them here would break the selection.
@@ -382,17 +397,33 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
   String _normQ(String raw) {
     if (raw.trim().isEmpty) return context.l10n.player_auto;
     final s = raw.toLowerCase();
-    if (s.contains('8k') || s.contains('4320')) return '8K';
-    if (s.contains('4k') || s.contains('2160')) return '4K';
-    final resolution = RegExp(
-      r'(1440|1080|720|540|480|360|240)\s*p?',
-      caseSensitive: false,
-    ).firstMatch(raw);
-    if (resolution != null) return '${resolution.group(1)}p';
-    if (s.contains('fhd')) return '1080P';
-    if (s.contains('hd')) return '720P';
-    if (s.contains('sd')) return '480P';
-    return raw.trim();
+    final lang = videoLanguageOf(raw);
+    String label;
+    if (s.contains('8k') || s.contains('4320')) {
+      label = '8K';
+    } else if (s.contains('4k') || s.contains('2160')) {
+      label = '4K';
+    } else {
+      final resolution = RegExp(
+        r'(1440|1080|720|540|480|360|240)\s*p?',
+        caseSensitive: false,
+      ).firstMatch(raw);
+      if (resolution != null) {
+        label = '${resolution.group(1)}p';
+      } else if (s.contains('fhd')) {
+        label = '1080P';
+      } else if (s.contains('hd')) {
+        label = '720P';
+      } else if (s.contains('sd')) {
+        label = '480P';
+      } else {
+        label = raw.trim();
+      }
+    }
+    // The language is part of the chip: two languages of the same resolution
+    // are two separate downloads, and collapsing them on `720p` hid one of
+    // them from the picker (and from the language box).
+    return lang == null ? label : '$label · $lang';
   }
 
   List<String> get _qualities {
@@ -411,20 +442,6 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     final real = out.where(_isRealResolution).toList();
     return real.isNotEmpty ? real : out;
   }
-
-  /// Resolutions already in the library for this video (source + link), so the
-  /// quality chips skip them. Empty when the item cannot be matched.
-  ///
-  /// Resolved once: the getter is read from `build` (chips) and from
-  /// `_startDownload`, and a synchronous Isar query per rebuild would jank the
-  /// sheet. The library cannot gain a row for this item while the sheet is
-  /// open — starting a download closes it.
-  Set<String> get _downloadedKeys =>
-      _downloadedCache ??= downloadedResolutionKeysForSource(
-        widget.manga.sourceId,
-        widget.manga.link,
-      );
-  Set<String>? _downloadedCache;
 
   /// Déduplication par numéro d'épisode (sources multi-qualité).
   static int _episodeKeyNum(Chapter ch, int fallback) {
@@ -523,7 +540,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
   Future<void> _startDownload() async {
     // Film dont toutes les résolutions sont déjà en bibliothèque : il n'y a
     // rien de neuf à télécharger, et le moteur refuserait le doublon.
-    if (_isFilm && _downloadedKeys.isNotEmpty && _filmRows.isEmpty) {
+    if (_isFilm && _downloadedRenditions.isNotEmpty && _filmRows.isEmpty) {
       botToast(context.l10n.download_sheet_all_downloaded);
       return;
     }
@@ -915,11 +932,9 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     final fromRows =
         _filmRows.map((row) => row.label).where(_isRealResolution).toList();
     if (fromRows.isNotEmpty) return fromRows;
-    final downloaded = _downloadedKeys;
-    if (downloaded.isEmpty) return _qualities;
     return [
       for (final quality in _qualities)
-        if (!downloaded.contains(resolutionKey(quality))) quality,
+        if (!_isRenditionDownloaded(quality)) quality,
     ];
   }
 

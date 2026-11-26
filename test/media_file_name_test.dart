@@ -44,6 +44,21 @@ void main() {
       expect(utf8.encode(name).length, lessThanOrEqualTo(kMaxDownloadNameBytes));
       expect(name.endsWith(' [360p]'), isTrue);
     });
+
+    test('keeps the language in the tag so two languages cannot collide', () {
+      final vf = animeMp4BaseName(chapterName: 'Ep 1', quality: '720p VF');
+      final vostfr = animeMp4BaseName(chapterName: 'Ep 1', quality: '720p VOSTFR');
+
+      expect(vf, 'Ep 1 [720p VF]');
+      expect(vostfr, 'Ep 1 [720p VOSTFR]');
+      // Same episode, same resolution, two distinct files on disk.
+      expect(vf, isNot(vostfr));
+    });
+
+    test('keeps a language tag with no resolution out of the suffix', () {
+      // No resolution → no suffix at all, and no dangling `[]`.
+      expect(animeMp4BaseName(chapterName: 'Ep 1', quality: 'VF'), 'Ep 1');
+    });
   });
 
   group('safeChapterBaseName', () {

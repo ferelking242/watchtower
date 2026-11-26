@@ -1,3 +1,4 @@
+import 'package:watchtower/services/downloaded_video_preference.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 
 /// Deterministic on-disk base name (no extension) for a chapter.
@@ -23,17 +24,23 @@ String safeChapterBaseName({required String? chapterName, int? chapterId}) {
 /// the file the downloader had actually written and left it orphaned on disk.
 /// Both the writer and the readers must go through this one function.
 ///
-/// The base is truncated *before* the tag is appended so the ` [360p]` suffix
-/// always survives whole and the result stays within [kMaxDownloadNameBytes]
-/// UTF-8 bytes (see the constant for why that budget exists).
+/// The language tag is part of the suffix when the quality label carries one
+/// (`720p VF` → ` [720p VF]`): two downloads of the same episode in two
+/// languages otherwise resolved to the same path and the second one silently
+/// overwrote the first.
+///
+/// The base is truncated *before* the tag is appended so the suffix always
+/// survives whole and the result stays within [kMaxDownloadNameBytes] UTF-8
+/// bytes (see the constant for why that budget exists).
 String animeMp4BaseName({
   required String? chapterName,
   int? chapterId,
   String? quality,
 }) {
   final resolution = _qualityDigits(quality);
+  final language = quality == null ? null : videoLanguageOf(quality);
   final suffix = RegExp(r'^\d{3,4}$').hasMatch(resolution)
-      ? ' [${resolution}p]'
+      ? ' [${resolution}p${language == null ? '' : ' $language'}]'
       : '';
   final base = safeChapterBaseName(chapterName: chapterName, chapterId: chapterId)
       .truncateToBytes(kMaxDownloadNameBytes - suffix.length);

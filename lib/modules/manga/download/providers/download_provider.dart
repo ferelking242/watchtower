@@ -47,6 +47,8 @@ import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
 import 'package:watchtower/services/page_url_cache.dart';
+import 'package:watchtower/services/downloaded_video_preference.dart';
+import 'package:watchtower/services/watch_comments_cache.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
@@ -661,6 +663,7 @@ Chapter prepareVideoQualityDownloadChapter(
   ensureChapterLinksLoaded(source);
   final sourceManga = resolveChapterManga(source);
   final requestedKey = qualityDigits(quality);
+  final requestedLang = videoLanguageOf(quality);
 
   // Query by the indexed `mangaId` instead of scanning every chapter row in
   // the database: this runs on the UI isolate for each episode a user queues.
@@ -677,7 +680,12 @@ Chapter prepareVideoQualityDownloadChapter(
     }
     final existing = isar.downloads.getSync(candidate.id!);
     final existingQuality = existing?.quality;
-    if (existingQuality != null && qualityDigits(existingQuality) == requestedKey) {
+    // Same resolution is not the same rendition: `720p VF` and `720p VOSTFR`
+    // must land on two rows (and two files), otherwise the second download
+    // reused the first chapter's row and overwrote its video.
+    if (existingQuality != null &&
+        qualityDigits(existingQuality) == requestedKey &&
+        videoLanguageOf(existingQuality) == requestedLang) {
       chapterPreferredQuality[candidate.id!] = quality;
       if (language != null && language.isNotEmpty) {
         chapterPreferredLang[candidate.id!] = language;
@@ -2288,6 +2296,21 @@ Future<void> downloadChapter(
           } catch (_) {
             // Notification d'achèvement : on ne fait pas planter la fin du
             // téléchargement pour une entrée mal désérialisée.
+          }
+          if (progress.itemType == ItemType.anime) {
+            // Cache the episode's comments next to the file: the comment tab
+            // fetches through the extension runtime, which needs the network,
+            // so a downloaded episode would otherwise show an empty tab
+            // offline.
+            unawaited(
+              cacheEpisodeComments(
+                // Must match the title the player and the comment tab use as
+                // their cache key, so no trimming here.
+                title: resolveChapterManga(chapter)?.name ?? chapter.name ?? '',
+                chapter: chapter,
+                sourceManga: resolveChapterManga(chapter),
+              ),
+            );
           }
         }
         unawaited(

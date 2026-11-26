@@ -9,7 +9,6 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/services.dart';
 import 'package:watchtower/services/watch_resume_store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,6 +46,8 @@ import 'package:watchtower/services/downloaded_video_preference.dart'
     as downloaded_video_preference;
 import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
+import 'package:watchtower/modules/watch/detail/player_skip_hud.dart';
+import 'package:watchtower/modules/watch/detail/player_tap_resolver.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -163,6 +164,16 @@ bool _isLocalVideoPath(String value) {
 
 String _displayVideoQuality(String quality) {
   return downloaded_video_preference.displayVideoQuality(quality);
+}
+
+/// Quality label plus the language tag when the rendition carries one, so two
+/// downloaded files of the same resolution in different languages are not two
+/// identical-looking `720p` rows in the picker.
+String _displayVideoRendition(String quality) {
+  final label = _displayVideoQuality(quality);
+  final lang = downloaded_video_preference.videoLanguageOf(quality);
+  if (lang == null) return label;
+  return '$label · $lang';
 }
 
 String _videoQualityKey(String quality) =>
@@ -451,6 +462,11 @@ class WatchInlinePlayer {
   /// Callbacks for episode navigation (set by the parent page in build()).
   VoidCallback? onPrevEpisode;
   VoidCallback? onNextEpisode;
+
+  /// Called when the user *long-presses* the next-episode button: jump to the
+  /// next library entry (the following downloaded title) instead of the next
+  /// episode of the current one. Null when there is no next entry.
+  VoidCallback? onNextEntry;
 
   /// Episode list + tap callback (set by the parent page in build()).
   List<Chapter> chapters = [];
@@ -1807,6 +1823,7 @@ class WatchInlinePlayer {
       currentChapterId: loadedChapterId,
       onPrevEpisode: onPrevEpisode,
       onNextEpisode: onNextEpisode,
+      onNextEntry: onNextEntry,
       chapters: chapters,
       onEpisodeTap: onEpisodeTap,
       coverUrl: coverUrl,
@@ -1841,6 +1858,7 @@ class WatchInlinePlayer {
             currentChapterId: loadedChapterId,
             onPrevEpisode: onPrevEpisode,
             onNextEpisode: onNextEpisode,
+            onNextEntry: onNextEntry,
             chapters: chapters,
             onEpisodeTap: onEpisodeTap,
             fallbackCoverUrl: coverUrl,
@@ -1864,6 +1882,9 @@ class _FullscreenPlayerPage extends StatefulWidget {
   final String? selectedQuality;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+
+  /// Long-press on the next-episode button → next library entry.
+  final VoidCallback? onNextEntry;
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
   final String? fallbackCoverUrl;
@@ -1879,6 +1900,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
     this.selectedQuality,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.onNextEntry,
     this.chapters = const [],
     this.onEpisodeTap,
     this.fallbackCoverUrl,
@@ -1986,6 +2008,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
                 selectedQuality: widget.selectedQuality,
                 onPrevEpisode: widget.onPrevEpisode,
                 onNextEpisode: widget.onNextEpisode,
+                onNextEntry: widget.onNextEntry,
                 chapters: widget.chapters,
                 onEpisodeTap: widget.onEpisodeTap,
                 partialPlan: widget.partialPlan,
@@ -2012,6 +2035,9 @@ class _FullscreenControlsOverlay extends ConsumerStatefulWidget {
   final ValueNotifier<BoxFit>? fitNotifier;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+
+  /// Long-press on the next-episode button → jump to the next library entry.
+  final VoidCallback? onNextEntry;
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
   final String? fallbackCoverUrl;
@@ -2031,6 +2057,7 @@ class _FullscreenControlsOverlay extends ConsumerStatefulWidget {
     this.fitNotifier,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.onNextEntry,
     this.chapters = const [],
     this.onEpisodeTap,
     this.fallbackCoverUrl,
@@ -2098,8 +2125,9 @@ class _FullscreenControlsOverlayState
   bool _showSubPanel = false;
 
   // ── Double-tap skip (skip zones) ──────────────────────────────────────────
-  bool? _doubleTapRight;
-  Timer? _doubleTapResetTimer;
+  // One burst per double-tap sequence: the label reads the running total
+  // (`+15`, `+30`, …) while the reveal always restarts at a single arrow.
+  final _skipBurst = SkipBurst();
   bool _showLeftSkipHUD = false;
   bool _showRightSkipHUD = false;
   Timer? _skipHudTimer;
@@ -2107,19 +2135,27 @@ class _FullscreenControlsOverlayState
   // animation from the start instead of keeping the previous frame.
   int _skipHudToken = 0;
   // Debounce: accumulate delta, fire ONE seek per rapid-tap burst
-  Timer? _seekDebounceTimer;
-  int _accumulatedSeekDelta = 0;
   // Tap / double-tap / hold resolver shared with the portrait overlay. A
   // `Listener` never competes in the gesture arena, so a double-tap cannot be
   // lost to the overlay's drag / long-press recognizers (which happened "une
   // fois sur six" in landscape).
-  late final _TapGestureResolver _tapResolver = _TapGestureResolver(
+  late final PlayerTapResolver _tapResolver = PlayerTapResolver(
     onTap: _onTap,
+    onTapRevert: _revertTap,
     onDoubleTap: (x) => _dispatchDoubleTap(x),
+    // Right-half press-and-hold = speed boost. Handled here, on the same raw
+    // pointer stream as the taps, so no long-press recognizer competes with the
+    // double-tap detection (which used to drop it "une fois sur six").
+    onHoldStart: _onHoldStart,
+    onHoldMove: _onHoldMove,
+    onHoldEnd: _onHoldEnd,
   );
 
   // ── Current quality (synced with loadedVideos) ────────────────────────────
   String? _currentQuality;
+  /// Audio language currently filtered in the quality picker, or `null` for
+  /// "all languages". Only set when the episode ships more than one.
+  String? _pickerLanguage;
 
   // ── Miniature preview (YouTube-style) ────────────────────────────────────
   final _SeekThumbPreview _thumbPreview = _SeekThumbPreview();
@@ -2173,6 +2209,11 @@ class _FullscreenControlsOverlayState
 
   // ── Adaptive hide: track recent taps ─────────────────────────────────────
   DateTime _lastTapTime = DateTime.now();
+
+  /// Set while the last single tap toggled the controls, so a follow-up tap
+  /// that turns out to be the second half of a double-tap can undo exactly that
+  /// toggle instead of guessing from the current visibility.
+  bool _tapToggledControls = false;
 
   @override
   void initState() {
@@ -2259,6 +2300,20 @@ class _FullscreenControlsOverlayState
         setState(() => _showBuffering = false);
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(_FullscreenControlsOverlay old) {
+    super.didUpdateWidget(old);
+    // Episode changed (previous/next or an explicit pick): the parent rebuilt
+    // us with a new `currentChapterId`. Drop the stale auto-next countdown so
+    // it cannot carry over to the new episode. The resume itself is driven by
+    // the parent (`startPosition` → `_applyStartPosition`), not here.
+    if (widget.currentChapterId != old.currentChapterId) {
+      _nextEpTimer?.cancel();
+      _nextEpTriggered = false;
+      _showNextEpCard = false;
+    }
   }
 
   // ── Position watcher: auto-next + save progress ───────────────────────────
@@ -2373,9 +2428,7 @@ class _FullscreenControlsOverlayState
   void dispose() {
     _hideTimer?.cancel();
     _hudTimer?.cancel();
-    _doubleTapResetTimer?.cancel();
     _skipHudTimer?.cancel();
-    _seekDebounceTimer?.cancel();
     _tapResolver.dispose();
     _nextEpTimer?.cancel();
     _saveProgressTimer?.cancel();
@@ -2493,9 +2546,9 @@ class _FullscreenControlsOverlayState
     } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
   }
 
-  // ── Double-tap seek with escalating amounts ──────────────────────────────────
-  // Debounced: accumulates delta across rapid taps and fires ONE seek per
-  // burst, preventing multiple concurrent mpv buffer positions (RAM spike).
+  // ── Double-tap seek ─────────────────────────────────────────────────────────
+  // Each double-tap seeks one step immediately; the HUD label shows the running
+  // total of the burst and its reveal always replays from a single arrow.
   void _handleDoubleTap({required bool isRight}) {
     if (_locked) return;
     if (!_doubleTapSeekEnabled) {
@@ -2504,26 +2557,11 @@ class _FullscreenControlsOverlayState
       if (_doubleTapToPauseEnabled) widget.player.playOrPause();
       return;
     }
-    _doubleTapResetTimer?.cancel();
+    _skipBurst.stepSeconds = _seekSeconds;
+    final delta = _skipBurst.add(isRight: isRight);
+    _seek(delta);
 
-    // Reset the accumulator if the side changed
-    if (_doubleTapRight != null && _doubleTapRight != isRight) {
-      _accumulatedSeekDelta = 0;
-    }
-    _doubleTapRight = isRight;
-
-    final increment = _seekSeconds;
-    _accumulatedSeekDelta += isRight ? increment : -increment;
-
-    // Debounce: one real seek fires 120 ms after the last tap in a burst.
-    _seekDebounceTimer?.cancel();
-    _seekDebounceTimer = Timer(const Duration(milliseconds: 120), () {
-      if (!mounted) return;
-      _seek(_accumulatedSeekDelta);
-      _accumulatedSeekDelta = 0;
-    });
-
-    // Show HUD — stays visible until 800 ms after the last tap.
+    // Re-keyed every tap: the HUD replays `>` → `>>` → `>>+N` from the start.
     _skipHudTimer?.cancel();
     setState(() {
       _skipHudToken++;
@@ -2531,23 +2569,17 @@ class _FullscreenControlsOverlayState
       _showRightSkipHUD = isRight;
     });
     _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
-      if (mounted)
-        setState(() {
-          _showLeftSkipHUD = false;
-          _showRightSkipHUD = false;
-          _doubleTapRight = null;
-        });
-    });
-
-    // Reset the burst 1 s after the last tap
-    _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
-      _doubleTapRight = null;
-      _accumulatedSeekDelta = 0;
+      if (!mounted) return;
+      setState(() {
+        _showLeftSkipHUD = false;
+        _showRightSkipHUD = false;
+      });
+      _skipBurst.reset();
     });
   }
 
   // ── Raw-pointer tap / double-tap detection ────────────────────────────────
-  // Delegated to [_TapGestureResolver] (shared with the portrait overlay): a
+  // Delegated to [PlayerTapResolver] (shared with the portrait overlay): a
   // `GestureDetector` double-tap recognizer kept losing the gesture arena to
   // the overlay's drag/long-press recognizers, so a double-tap landed "une
   // fois sur six". A raw `Listener` never enters the arena and cannot lose.
@@ -2565,6 +2597,56 @@ class _FullscreenControlsOverlayState
       widget.player.playOrPause();
       _resetHideTimer();
     }
+  }
+
+  // ── Press-and-hold on the right half = speed boost ────────────────────────
+  // Driven by [PlayerTapResolver]'s raw-pointer hold callbacks (see there for
+  // why it no longer uses a `GestureDetector` long-press recognizer).
+  //
+  // The hold is only armed inside the right *seek* zone, not the whole right
+  // half. The centre 40 % owns double-tap-to-pause, and a press there that
+  // lasted past the long-press delay used to be accepted as a speed boost: the
+  // hold swallowed the first tap, the second one started a fresh single tap,
+  // and the centre double-tap therefore never paused in landscape (portrait has
+  // no hold callback at all, which is why it always worked there). Keeping the
+  // hold inside the same zone as "seek forward" gives landscape exactly the
+  // three tap zones portrait already has.
+  bool _onHoldStart(double x) {
+    if (_locked) return false;
+    final width = MediaQuery.of(context).size.width;
+    if (x <= width * 0.7) return false;
+    _preHoldSpeed = _speed;
+    _holdBoostSpeed = 2.0;
+    _speed = 2.0;
+    _holdSpeedActive = true;
+    widget.player.setRate(2.0);
+    _hideTimer?.cancel();
+    setState(() => _showSpeedBoostHUD = true);
+    return true;
+  }
+
+  void _onHoldMove(double dxFromOrigin) {
+    if (!_holdSpeedActive) return;
+    final shift = (dxFromOrigin / 50).round().clamp(-6, 6);
+    const base2xIdx = 7;
+    final newIdx = (base2xIdx + shift).clamp(0, _kAllSpeeds.length - 1);
+    final newSpeed = _kAllSpeeds[newIdx];
+    if (newSpeed != _holdBoostSpeed) {
+      _holdBoostSpeed = newSpeed;
+      _speed = newSpeed;
+      widget.player.setRate(newSpeed);
+      setState(() {});
+    }
+  }
+
+  void _onHoldEnd() {
+    if (!_holdSpeedActive) return;
+    _holdSpeedActive = false;
+    _speed = _preHoldSpeed;
+    _holdBoostSpeed = 2.0;
+    widget.player.setRate(_preHoldSpeed);
+    setState(() => _showSpeedBoostHUD = false);
+    _resetHideTimer();
   }
 
   void _resetHideTimer() {
@@ -2638,11 +2720,25 @@ class _FullscreenControlsOverlayState
       _screenshotHudTimer?.cancel();
       setState(() => _showScreenshotHud = false);
     }
+    _tapToggledControls = true;
     setState(() => _showControls = !_showControls);
     if (_showControls)
       _resetHideTimer();
     else
       _hideTimer?.cancel();
+  }
+
+  /// Undoes [_onTap] when that tap turned out to be the first half of a
+  /// double-tap, so a seek never leaves the controls toggled behind it.
+  void _revertTap() {
+    if (_locked || !_tapToggledControls) return;
+    _tapToggledControls = false;
+    setState(() => _showControls = !_showControls);
+    if (_showControls) {
+      _resetHideTimer();
+    } else {
+      _hideTimer?.cancel();
+    }
   }
 
   void _seek(int deltaSeconds) {
@@ -2806,49 +2902,13 @@ class _FullscreenControlsOverlayState
     final size = MediaQuery.of(context).size;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      // NOTE: no onTap here — single tap is handled exclusively by the
-      // left/right half-screen zones below (which also own onDoubleTap).
-      // Having onTap on this outer wrapper AND on the inner zones created
-      // a gesture-arena race: the outer tap fired instantly while the
+      // NOTE: no onTap here — single tap is handled exclusively by the raw
+      // pointer layer below (which also owns double-tap and the speed-boost
+      // hold). Having onTap on this outer wrapper AND on the inner zones
+      // created a gesture-arena race: the outer tap fired instantly while the
       // inner tap waited for the double-tap timeout, causing controls to
-      // flicker open/close and double-taps to sometimes register as two
-      // single taps.
-      onLongPressStart: (d) {
-        if (_locked) return;
-        if (d.globalPosition.dx > size.width / 2) {
-          _preHoldSpeed = _speed;
-          _holdBoostSpeed = 2.0;
-          _speed = 2.0;
-          _holdSpeedActive = true;
-          widget.player.setRate(2.0);
-          _hideTimer?.cancel();
-          setState(() => _showSpeedBoostHUD = true);
-        }
-      },
-      onLongPressMoveUpdate: (d) {
-        if (!_holdSpeedActive) return;
-        final dx = d.offsetFromOrigin.dx;
-        final shift = (dx / 50).round().clamp(-6, 6);
-        const base2xIdx = 7;
-        final newIdx = (base2xIdx + shift).clamp(0, _kAllSpeeds.length - 1);
-        final newSpeed = _kAllSpeeds[newIdx];
-        if (newSpeed != _holdBoostSpeed) {
-          _holdBoostSpeed = newSpeed;
-          _speed = newSpeed;
-          widget.player.setRate(newSpeed);
-          setState(() {});
-        }
-      },
-      onLongPressEnd: (_) {
-        if (_holdSpeedActive) {
-          _holdSpeedActive = false;
-          _speed = _preHoldSpeed;
-          _holdBoostSpeed = 2.0;
-          widget.player.setRate(_preHoldSpeed);
-          setState(() => _showSpeedBoostHUD = false);
-          _resetHideTimer();
-        }
-      },
+      // flicker open/close and double-taps to sometimes register as two single
+      // taps. Only the drag recognizers live here now.
       onHorizontalDragStart: (d) {
         if (_locked || _holdSpeedActive || !_swipeGesturesEnabled) return;
         _horizDragStartX = d.globalPosition.dx;
@@ -2859,6 +2919,15 @@ class _FullscreenControlsOverlayState
       onHorizontalDragUpdate: (d) {
         if (_horizDragStartX == null || _holdSpeedActive) return;
         final dx = d.globalPosition.dx - _horizDragStartX!;
+        // Only once the finger has really travelled is this a swipe. A drag
+        // recognizer wins the arena after kTouchSlop (18 px), which in
+        // landscape is less than a thumb resting on the glass drifts — marking
+        // the press as "moved" that early dropped the tap and is why a
+        // double-tap landed once in six there. The tap resolver's own slop is
+        // wider, so both paths agree on what a tap is.
+        if (dx.abs() > PlayerTapResolver.defaultTapSlop) {
+          _tapResolver.notifyDragStarted();
+        }
         final realDur = _realDuration;
         final dur = realDur.inSeconds;
         if (dur <= 0) return;
@@ -2885,6 +2954,9 @@ class _FullscreenControlsOverlayState
               ? Duration.zero
               : (next > realDur ? realDur : next);
           _seekReal(clamped);
+          // A short flick commits a seek but stays under the tap slop, so the
+          // pending single tap must not toggle the controls on top of it.
+          _tapResolver.suppressPendingTap();
         }
         _horizDragStartX = null;
         _horizSeekDelta = 0;
@@ -2899,11 +2971,20 @@ class _FullscreenControlsOverlayState
       },
       onVerticalDragUpdate: (d) {
         if (_locked || !_swipeGesturesEnabled) return;
+        final start = _dragStartPos;
+        if (start != null &&
+            (d.globalPosition - start).distance >
+                PlayerTapResolver.defaultTapSlop) {
+          _tapResolver.notifyDragStarted();
+        }
         _handleSwipeDrag(d, size);
       },
       onVerticalDragEnd: (_) {
         if (_locked) {
           return;
+        }
+        if (_showBrightnessHUD || _showVolumeHUD) {
+          _tapResolver.suppressPendingTap();
         }
         _dragStartPos = null;
         if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
@@ -2912,7 +2993,7 @@ class _FullscreenControlsOverlayState
         children: [
           // ── Tap layer: raw pointer events, no GestureDetector. A double-tap
           // recognizer kept losing the arena to the overlay's drag/long-press
-          // recognizers, so taps are resolved by [_TapGestureResolver]. A
+          // recognizers, so taps are resolved by [PlayerTapResolver]. A
           // Listener never enters the arena and so cannot lose. The layer sits
           // BELOW the controls overlay, whose scrim is not hit-testable, so
           // taps in the empty middle still reach it while the real bars/buttons
@@ -2923,7 +3004,7 @@ class _FullscreenControlsOverlayState
               onPointerDown: _tapResolver.onPointerDown,
               onPointerMove: _tapResolver.onPointerMove,
               onPointerUp: _tapResolver.onPointerUp,
-              onPointerCancel: (_) => _tapResolver.onPointerCancel(),
+              onPointerCancel: _tapResolver.onPointerCancel,
             ),
           ),
 
@@ -2938,7 +3019,9 @@ class _FullscreenControlsOverlayState
                       : const Alignment(-0.5, 0),
                   child: _buildSkipHUD(
                     isRight: _showRightSkipHUD,
-                    seconds: _seekSeconds,
+                    seconds: _skipBurst.total == 0
+                        ? _seekSeconds
+                        : _skipBurst.total,
                   ),
                 ),
               ),
@@ -3463,7 +3546,10 @@ class _FullscreenControlsOverlayState
     required bool isRight,
     required int seconds,
   }) {
-    return _SkipHud(
+    // Re-keyed per double-tap: a fresh State replays `>` → `>>` → `>>+15`
+    // from the start every time, instead of resuming mid-animation.
+    return PlayerSkipHud(
+      key: ValueKey<int>(_skipHudToken),
       isRight: isRight,
       seconds: seconds,
       token: _skipHudToken,
@@ -4180,23 +4266,21 @@ class _FullscreenControlsOverlayState
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
           ),
-          // Next episode
-          IconButton(
-            icon: Icon(
-              Broken.next,
-              color: widget.onNextEpisode != null
-                  ? Colors.white70
-                  : Colors.white24,
-              size: 24,
-            ),
-            onPressed: widget.onNextEpisode != null
-                ? () {
+          // Next episode. A 2 s press-and-hold skips the whole title and jumps
+          // to the next library entry — the same target the button falls back
+          // to when this title has no further downloaded episode.
+          _NextEpisodeButton(
+            onTap: widget.onNextEpisode == null
+                ? null
+                : () {
                     widget.onNextEpisode!();
                     _resetHideTimer();
-                  }
-                : null,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                  },
+            onHold: widget.onNextEntry,
+            onHoldFired: _resetHideTimer,
+            color: widget.onNextEpisode != null || widget.onNextEntry != null
+                ? Colors.white70
+                : Colors.white24,
           ),
           const Spacer(),
           // Fit (cycle through modes)
@@ -4359,7 +4443,26 @@ class _FullscreenControlsOverlayState
 
   // ─── Quality picker — uses loadedVideos from parent ────────────────────────
   Widget _buildQualityPickerOverlay() {
-    final videos = widget.loadedVideos;
+    final all = widget.loadedVideos;
+    // A source that ships several audio languages exposes them on the rendition
+    // labels (`720p VF` / `720p VOSTFR`). Filtering here keeps the quality list
+    // short instead of showing the same resolution once per language.
+    final languages = <String>[
+      for (final v in all)
+        if (downloaded_video_preference.videoLanguageOf(v.quality)
+            case final lang?)
+          lang,
+    ].toSet().toList()
+      ..sort();
+    final videos = languages.length > 1 && _pickerLanguage != null
+        ? all
+              .where(
+                (v) =>
+                    downloaded_video_preference.videoLanguageOf(v.quality) ==
+                    _pickerLanguage,
+              )
+              .toList()
+        : all;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
@@ -4396,6 +4499,53 @@ class _FullscreenControlsOverlayState
                 ),
               ),
               const Divider(height: 1, color: Colors.white12),
+              if (languages.length > 1)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: languages.map((lang) {
+                      final sel = _pickerLanguage == lang;
+                      return GestureDetector(
+                        onTap: () =>
+                            setState(() => _pickerLanguage = sel ? null : lang),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? Theme.of(
+                                    context,
+                                  ).primaryColor.withValues(alpha: 0.22)
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: sel
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.white24,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            lang,
+                            style: TextStyle(
+                              color: sel
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.white,
+                              fontSize: 12,
+                              fontWeight: sel
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               if (videos.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -4448,9 +4598,9 @@ class _FullscreenControlsOverlayState
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 SizedBox(
-                                  width: 80,
+                                  width: 110,
                                   child: Text(
-                                    _displayVideoQuality(v.quality),
+                                    _displayVideoRendition(v.quality),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: isCurrent
@@ -4575,6 +4725,85 @@ String _audioTrackLabel(AudioTrack t, int index, AppLocalizations l10n) {
 }
 
 // ─── Toolbar chip button ───────────────────────────────────────────────────────
+
+/// The "next episode" button, with a deliberate 2 s press-and-hold.
+///
+/// `GestureDetector.onLongPress` fires at [kLongPressTimeout] (500 ms), which is
+/// inside the range of a normal "press the button and let go", so the button
+/// jumped to the next library entry on an ordinary tap-and-hold. The hold is
+/// timed explicitly, and the release that ends a completed hold is swallowed so
+/// it cannot also advance to the next episode.
+class _NextEpisodeButton extends StatefulWidget {
+  const _NextEpisodeButton({
+    this.onTap,
+    this.onHold,
+    this.onHoldFired,
+    this.color = Colors.white70,
+  });
+
+  final VoidCallback? onTap;
+  final VoidCallback? onHold;
+  final VoidCallback? onHoldFired;
+  final Color color;
+
+  @override
+  State<_NextEpisodeButton> createState() => _NextEpisodeButtonState();
+}
+
+class _NextEpisodeButtonState extends State<_NextEpisodeButton> {
+  static const _holdDuration = Duration(seconds: 2);
+
+  Timer? _timer;
+  bool _holdFired = false;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startHold() {
+    if (widget.onHold == null) return;
+    _holdFired = false;
+    _timer?.cancel();
+    _timer = Timer(_holdDuration, () {
+      if (!mounted) return;
+      _holdFired = true;
+      widget.onHold?.call();
+      widget.onHoldFired?.call();
+    });
+  }
+
+  void _cancelHold() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void _handleTap() {
+    if (_holdFired) {
+      _holdFired = false;
+      return;
+    }
+    widget.onTap?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => _startHold(),
+      onPointerUp: (_) => _cancelHold(),
+      onPointerCancel: (_) => _cancelHold(),
+      child: IconButton(
+        icon: Icon(Broken.next, color: widget.color, size: 24),
+        onPressed: widget.onTap != null || widget.onHold != null
+            ? _handleTap
+            : null,
+        padding: const EdgeInsets.all(4),
+        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+      ),
+    );
+  }
+}
 
 class _ToolbarChip extends StatelessWidget {
   final String label;
@@ -6067,6 +6296,7 @@ class _PortraitPlayerOverlay extends ConsumerStatefulWidget {
   final int? currentChapterId;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+  final VoidCallback? onNextEntry;
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
   final String? coverUrl;
@@ -6088,6 +6318,7 @@ class _PortraitPlayerOverlay extends ConsumerStatefulWidget {
     this.currentChapterId,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.onNextEntry,
     this.chapters = const [],
     this.onEpisodeTap,
     this.coverUrl,
@@ -6103,6 +6334,11 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   bool _showControls = true;
   bool _showSettingsPanel = false;
   Timer? _hideTimer;
+
+  /// Set while the last single tap toggled the controls, so a follow-up tap
+  /// that turns out to be the second half of a double-tap undoes exactly that
+  /// toggle (see [PlayerTapResolver.onTapRevert]).
+  bool _tapToggledControls = false;
 
   // ── Gesture / overlay preferences (mirror the fullscreen overlay) ─────────
   bool _swipeGesturesEnabled = true;
@@ -6120,20 +6356,19 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   Timer? _hudTimer;
 
   // ── Double-tap skip ────────────────────────────────────────────────────────
-  bool? _doubleTapRight;
-  Timer? _doubleTapResetTimer;
-  // Portrait: HUD flèches latérales animées (style YouTube)
+  // Skip HUD — one burst per double-tap sequence, same as the fullscreen
+  // overlay: the label shows the running total, the reveal always replays.
+  final _skipBurst = SkipBurst();
   bool _showLeftSkipHUD = false;
   bool _showRightSkipHUD = false;
   Timer? _skipHudTimer;
   // Bumped on every double-tap so the HUD replays its animation (see fullscreen).
   int _skipHudToken = 0;
-  Timer? _seekDebounceTimer;
-  int _accumulatedSeekDelta = 0;
   // Tap / double-tap / hold resolver shared with the fullscreen overlay (see
-  // [_TapGestureResolver] for why a raw Listener replaced the GestureDetector).
-  late final _TapGestureResolver _tapResolver = _TapGestureResolver(
+  // [PlayerTapResolver] for why a raw Listener replaced the GestureDetector).
+  late final PlayerTapResolver _tapResolver = PlayerTapResolver(
     onTap: _onTap,
+    onTapRevert: _revertTap,
     onDoubleTap: (x) => _dispatchDoubleTap(x),
   );
 
@@ -6174,9 +6409,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   void dispose() {
     _hideTimer?.cancel();
     _hudTimer?.cancel();
-    _doubleTapResetTimer?.cancel();
     _skipHudTimer?.cancel();
-    _seekDebounceTimer?.cancel();
     _tapResolver.dispose();
     _thumbPreview.dispose();
     super.dispose();
@@ -6195,11 +6428,24 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   }
 
   void _onTap() {
+    _tapToggledControls = true;
     _setVisible(!_showControls);
     if (_showControls)
       _resetHideTimer();
     else
       _hideTimer?.cancel();
+  }
+
+  /// Undoes [_onTap] when that tap was the first half of a double-tap.
+  void _revertTap() {
+    if (!_tapToggledControls) return;
+    _tapToggledControls = false;
+    _setVisible(!_showControls);
+    if (_showControls) {
+      _resetHideTimer();
+    } else {
+      _hideTimer?.cancel();
+    }
   }
 
   void _seek(int deltaSeconds) {
@@ -6240,30 +6486,15 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   }
 
   void _handleDoubleTap({required bool isRight}) {
-    _doubleTapResetTimer?.cancel();
     if (!_doubleTapSeekEnabled) {
       // "Double-tap pour mettre en pause" replaces the seek zones when the
       // seek gestures are switched off.
       if (_doubleTapToPauseEnabled) widget.player.playOrPause();
       return;
     }
-    if (_doubleTapRight != null && _doubleTapRight != isRight) {
-      _accumulatedSeekDelta = 0;
-    }
-    _doubleTapRight = isRight;
-    final increment = _seekSeconds;
-    _accumulatedSeekDelta += isRight ? increment : -increment;
+    _skipBurst.stepSeconds = _seekSeconds;
+    _seek(_skipBurst.add(isRight: isRight));
 
-    // Debounce: one seek per tap burst, prevents mpv RAM spikes
-    _seekDebounceTimer?.cancel();
-    _seekDebounceTimer = Timer(const Duration(milliseconds: 120), () {
-      if (mounted) {
-        _seek(_accumulatedSeekDelta);
-        _accumulatedSeekDelta = 0;
-      }
-    });
-
-    // Portrait: flèches latérales animées (style YouTube)
     _skipHudTimer?.cancel();
     setState(() {
       _skipHudToken++;
@@ -6271,23 +6502,17 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
       _showRightSkipHUD = isRight;
     });
     _skipHudTimer = Timer(const Duration(milliseconds: 800), () {
-      if (mounted) {
-        setState(() {
-          _showLeftSkipHUD = false;
-          _showRightSkipHUD = false;
-          _doubleTapRight = null;
-        });
-      }
-    });
-
-    _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
-      _doubleTapRight = null;
-      _accumulatedSeekDelta = 0;
+      if (!mounted) return;
+      setState(() {
+        _showLeftSkipHUD = false;
+        _showRightSkipHUD = false;
+      });
+      _skipBurst.reset();
     });
   }
 
   // ── Raw-pointer tap / double-tap detection (portrait) ─────────────────────
-  // Delegated to [_TapGestureResolver], shared with the fullscreen overlay.
+  // Delegated to [PlayerTapResolver], shared with the fullscreen overlay.
 
   /// Left 30% seeks back, right 30% seeks forward, the centre toggles
   /// pause/resume (when that gesture is enabled).
@@ -6314,6 +6539,9 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   void _onHorizDragUpdate(DragUpdateDetails d, Size size) {
     if (_horizDragStartX == null) return;
     final dx = d.globalPosition.dx - _horizDragStartX!;
+    if (dx.abs() > PlayerTapResolver.defaultTapSlop) {
+      _tapResolver.notifyDragStarted();
+    }
     final realDur = _realDuration;
     final dur = realDur.inSeconds;
     if (dur <= 0) return;
@@ -6338,6 +6566,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
           ? Duration.zero
           : (next > dur ? dur : next);
       _seekReal(clamped);
+      _tapResolver.suppressPendingTap();
     }
     _horizDragStartX = null;
     _horizSeekDelta = 0;
@@ -6531,7 +6760,10 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
     required bool isRight,
     required int seconds,
   }) {
-    return _SkipHud(
+    // Re-keyed per double-tap: a fresh State replays `>` → `>>` → `>>+15`
+    // from the start every time, instead of resuming mid-animation.
+    return PlayerSkipHud(
+      key: ValueKey<int>(_skipHudToken),
       isRight: isRight,
       seconds: seconds,
       token: _skipHudToken,
@@ -6551,9 +6783,18 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
       },
       onVerticalDragUpdate: (d) {
         if (!_swipeGesturesEnabled) return;
+        final start = _dragStartPos;
+        if (start != null &&
+            (d.globalPosition - start).distance >
+                PlayerTapResolver.defaultTapSlop) {
+          _tapResolver.notifyDragStarted();
+        }
         _handleSwipeDrag(d, size);
       },
       onVerticalDragEnd: (_) {
+        if (_showBrightnessHUD || _showVolumeHUD) {
+          _tapResolver.suppressPendingTap();
+        }
         _dragStartPos = null;
         if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
       },
@@ -6604,7 +6845,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
               onPointerDown: _tapResolver.onPointerDown,
               onPointerMove: _tapResolver.onPointerMove,
               onPointerUp: _tapResolver.onPointerUp,
-              onPointerCancel: (_) => _tapResolver.onPointerCancel(),
+              onPointerCancel: _tapResolver.onPointerCancel,
             ),
           ),
           // ── Skip HUD double-tap — flèches cumulées ‹ ‹‹ ‹‹‹, bien posées
@@ -6618,7 +6859,9 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
                       : const Alignment(-0.4, 0),
                   child: _buildSkipHUD(
                     isRight: _showRightSkipHUD,
-                    seconds: _seekSeconds,
+                    seconds: _skipBurst.total == 0
+                        ? _seekSeconds
+                        : _skipBurst.total,
                   ),
                 ),
               ),
@@ -6733,6 +6976,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
                   selectedQuality: widget.selectedQuality,
                   onPrevEpisode: widget.onPrevEpisode,
                   onNextEpisode: widget.onNextEpisode,
+                  onNextEntry: widget.onNextEntry,
                   chapters: widget.chapters,
                   onEpisodeTap: widget.onEpisodeTap,
                   fallbackCoverUrl: widget.coverUrl,
@@ -6770,6 +7014,9 @@ class _InlineControls extends StatefulWidget {
   final String? selectedQuality;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+
+  /// Long-press on the next-episode button → next library entry.
+  final VoidCallback? onNextEntry;
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
   final String? fallbackCoverUrl;
@@ -6788,6 +7035,7 @@ class _InlineControls extends StatefulWidget {
     this.selectedQuality,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.onNextEntry,
     this.chapters = const [],
     this.onEpisodeTap,
     this.fallbackCoverUrl,
@@ -6868,6 +7116,7 @@ class _InlineControlsState extends State<_InlineControls> {
               selectedQuality: widget.selectedQuality,
               onPrevEpisode: widget.onPrevEpisode,
               onNextEpisode: widget.onNextEpisode,
+              onNextEntry: widget.onNextEntry,
               chapters: widget.chapters,
               onEpisodeTap: widget.onEpisodeTap,
               fallbackCoverUrl: widget.fallbackCoverUrl,
@@ -6892,6 +7141,7 @@ class _InlineControlsState extends State<_InlineControls> {
           selectedQuality: widget.selectedQuality,
           onPrevEpisode: widget.onPrevEpisode,
           onNextEpisode: widget.onNextEpisode,
+          onNextEntry: widget.onNextEntry,
           chapters: widget.chapters,
           onEpisodeTap: widget.onEpisodeTap,
           fallbackCoverUrl: widget.fallbackCoverUrl,
@@ -7920,7 +8170,7 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                                       const SizedBox(width: 8),
                                       Text(
                                         context.l10n.media_season_n(
-                                          row.season ?? 0,
+                                          row.season,
                                         ),
                                         style: const TextStyle(
                                           color: Colors.white70,
@@ -8071,224 +8321,6 @@ class _EpRow {
   final int season;
   _EpRow({this.chapter, int? season})
     : season = season ?? _EpisodePanelState._noSeasonSentinel;
-}
-
-// ─── Raw-pointer tap / double-tap resolver ────────────────────────────────────
-/// Resolves a single tap, a double tap and a long hold from raw pointer events.
-///
-/// A `GestureDetector` double-tap recognizer kept losing the gesture arena to
-/// the player's own drag / long-press recognizers — a double-tap landed "une
-/// fois sur six", and the loss differed between portrait and landscape. A
-/// `Listener` never enters the arena and so cannot lose, so taps are resolved
-/// by hand here and shared by both overlays.
-///
-/// A single tap is held for [doubleTapWindow] before firing [onTap], so it does
-/// not toggle the controls right before a double-tap is recognised. The window
-/// is measured from the first *down* to the second *down* (not from the first
-/// release), which is both the platform convention and far more forgiving for a
-/// fast second tap.
-class _TapGestureResolver {
-  _TapGestureResolver({required this.onTap, required this.onDoubleTap});
-
-  final VoidCallback onTap;
-  final void Function(double x) onDoubleTap;
-
-  /// Window within which a second tap is treated as a double-tap, measured from
-  /// the first *down* to the second *down*.
-  static const _doubleTapWindow = Duration(milliseconds: 320);
-
-  /// A press longer than this is a hold (e.g. the speed-boost long-press) and
-  /// must not toggle the controls on release.
-  static const _maxTapMs = 400;
-
-  Offset? _downPos;
-  DateTime? _downAt;
-  bool _moved = false;
-  bool _awaitSecond = false;
-  bool _isSecondTap = false;
-  Timer? _deferTimer;
-
-  void onPointerDown(PointerDownEvent e) {
-    final now = DateTime.now();
-    _isSecondTap =
-        _awaitSecond &&
-        _downAt != null &&
-        now.difference(_downAt!) <= _doubleTapWindow;
-    _downPos = e.position;
-    _downAt = now;
-    _moved = false;
-  }
-
-  void onPointerMove(PointerMoveEvent e) {
-    final start = _downPos;
-    if (start == null) return;
-    if ((e.position - start).distance > kTouchSlop) _moved = true;
-  }
-
-  void onPointerUp(PointerUpEvent e) {
-    final downAt = _downAt;
-    final moved = _moved;
-    _downPos = null;
-    if (moved || downAt == null) {
-      _awaitSecond = false;
-      return;
-    }
-    // A hold is not a tap; it must not toggle the controls (nor count as the
-    // second tap of a double-tap) on release.
-    if (DateTime.now().difference(downAt).inMilliseconds > _maxTapMs) {
-      _awaitSecond = false;
-      _isSecondTap = false;
-      return;
-    }
-    if (_isSecondTap) {
-      _isSecondTap = false;
-      _awaitSecond = false;
-      _deferTimer?.cancel();
-      onDoubleTap(e.position.dx);
-      return;
-    }
-    _awaitSecond = true;
-    _deferTimer?.cancel();
-    _deferTimer = Timer(_doubleTapWindow, () {
-      _awaitSecond = false;
-      onTap();
-    });
-  }
-
-  void onPointerCancel() {
-    _awaitSecond = false;
-    _deferTimer?.cancel();
-  }
-
-  void dispose() {
-    _deferTimer?.cancel();
-  }
-}
-
-// ─── Skip HUD (double-tap seek) ───────────────────────────────────────────────
-/// Skip HUD shown on a double-tap: the reveal is always `>` → `>>` → `>>+15`
-/// (two arrows, then the seconds label).
-///
-/// [token] is bumped on every double-tap and replays the reveal from the start,
-/// so a new tap shows the same animation rather than a stale frame. The arrow
-/// count is fixed at two: an earlier version grew the stack per tap and reached
-/// four arrows, which the reveal must never do.
-class _SkipHud extends StatefulWidget {
-  const _SkipHud({
-    required this.isRight,
-    required this.seconds,
-    this.token = 0,
-  });
-
-  final bool isRight;
-  final int seconds;
-  final int token;
-
-  @override
-  State<_SkipHud> createState() => _SkipHudState();
-}
-
-class _SkipHudState extends State<_SkipHud>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  static const int _arrowCount = 2;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 340),
-    )..forward();
-  }
-
-  @override
-  void didUpdateWidget(_SkipHud old) {
-    super.didUpdateWidget(old);
-    // A new double-tap (new token) replays the reveal from the start.
-    if (widget.token != old.token) {
-      _ctrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = widget.isRight ? Broken.forward : Broken.backward;
-    // Two arrows, each owning a slice of the timeline so `>>` pops arrow by
-    // arrow rather than both at once; the label lands after the last arrow.
-    const slice = 1.0 / (_arrowCount + 1);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < _arrowCount; i++)
-          _AnimatedSkipArrow(
-            icon: icon,
-            size: widget.isRight ? 24 : 26,
-            animation: CurvedAnimation(
-              parent: _ctrl,
-              curve: Interval(
-                i * slice,
-                (i + 1) * slice,
-                curve: Curves.easeOutBack,
-              ),
-            ),
-          ),
-        const SizedBox(width: 8),
-        FadeTransition(
-          opacity: CurvedAnimation(
-            parent: _ctrl,
-            curve: const Interval(
-              _arrowCount * slice,
-              1.0,
-              curve: Curves.easeOut,
-            ),
-          ),
-          child: Text(
-            '${widget.isRight ? '+' : '-'}${widget.seconds.abs()}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AnimatedSkipArrow extends StatelessWidget {
-  const _AnimatedSkipArrow({
-    required this.icon,
-    required this.size,
-    required this.animation,
-  });
-
-  final IconData icon;
-  final double size;
-  final Animation<double> animation;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (_, child) => Opacity(
-        opacity: animation.value.clamp(0.0, 1.0),
-        child: Transform.translate(
-          offset: Offset((1 - animation.value) * 8, 0),
-          child: child,
-        ),
-      ),
-      child: Icon(icon, color: Colors.white, size: size),
-    );
-  }
 }
 
 // ─── Auto Next Episode Card (Netflix-style) ────────────────────────────────────
@@ -8661,7 +8693,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => _ReelPickerSheet(
         title: context.l10n.player_quality_label,
-        options: widget.loadedVideos.map((v) => v.quality ?? '').toList(),
+        options: widget.loadedVideos.map((v) => v.quality).toList(),
         selected: _quality ?? '',
         onSelect: (label) {
           final v = widget.loadedVideos.firstWhere(
