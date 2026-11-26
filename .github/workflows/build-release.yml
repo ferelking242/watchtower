@@ -363,7 +363,7 @@ jobs:
           SUM=$(sha256sum "$APK" | cut -d' ' -f1)
           BYTES=$(stat -c '%s' "$APK")
           PREV=$(gh release list --limit 100 --json tagName \
-            --jq '[.[] | select(.tagName | startswith("android-"))][0].tagName' \
+            --jq '[.[] | select(.tagName | startswith("android-")) | select(.tagName != "android-latest")][0].tagName' \
             2>/dev/null || true)
           RANGE="-20"
           if [ -n "$PREV" ]; then

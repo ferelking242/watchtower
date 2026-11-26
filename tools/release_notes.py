@@ -51,6 +51,8 @@ def first_detail(body: str) -> str | None:
         if line.lower().startswith(SKIPPED_DETAIL_PREFIXES):
             continue
         line = " ".join(line.split())
+        if len(line) < 25:
+            continue
         if len(line) > 180:
             line = line[:177].rsplit(" ", 1)[0] + "…"
         return line
@@ -78,7 +80,14 @@ def bullet(subject: str, body: str) -> tuple[str, str]:
 def render(rev_range: str) -> str:
     buckets: dict[str, list[str]] = {title: [] for title, _ in SECTIONS}
     others: list[str] = []
-    for subject, body in read_commits(rev_range):
+    try:
+        commits = read_commits(rev_range)
+    except subprocess.CalledProcessError as error:
+        print(error, file=sys.stderr)
+        commits = []
+    # `android-latest` is moved to the commit being released, so the range is
+    # empty on a rolling-release build. Fall back to the recent history.
+    for subject, body in commits or read_commits("-20"):
         kind, entry = bullet(subject, body)
         if not entry:
             continue
@@ -97,11 +106,7 @@ def render(rev_range: str) -> str:
 
 def main() -> int:
     rev_range = sys.argv[1] if len(sys.argv) > 1 else "-20"
-    try:
-        print(render(rev_range))
-    except subprocess.CalledProcessError as error:
-        print(error, file=sys.stderr)
-        return 1
+    print(render(rev_range))
     return 0
 
 
