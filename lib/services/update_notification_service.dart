@@ -102,6 +102,7 @@ const String _kMediaDownloadSeriesCategory = 'media_download_series';
 /// Retry requests written by the notification background isolate and replayed
 /// by the app isolate, which owns the download queue.
 const String _kPendingMediaRetriesKey = 'pending_media_download_retries';
+
 /// Per-series record of the finished state already presented. Android offers no
 /// dismissal callback, so "this exact result has been shown" is what makes a
 /// swipe final and stops a relaunch from resurrecting the card.
@@ -184,9 +185,7 @@ String abbreviateNotificationTitle(String title, {int maxLength = 38}) {
   if (trimmed.length <= maxLength) return trimmed;
   final head = trimmed.substring(0, maxLength);
   final lastSpace = head.lastIndexOf(' ');
-  final cut = lastSpace >= maxLength ~/ 2
-      ? head.substring(0, lastSpace)
-      : head;
+  final cut = lastSpace >= maxLength ~/ 2 ? head.substring(0, lastSpace) : head;
   return '${cut.trimRight()}…';
 }
 
@@ -207,6 +206,8 @@ enum MediaDownloadNotificationAction { pause, resume, cancel, retry }
 enum DownloadQueueNotificationAction { pause, resume, cancel }
 
 class WatchtowerNotificationService {
+  DateTime? _lastProgressAt;
+
   WatchtowerNotificationService._();
   static final WatchtowerNotificationService instance =
       WatchtowerNotificationService._();
@@ -1373,11 +1374,10 @@ class WatchtowerNotificationService {
     if (_coverCache.containsKey(key)) return _coverCache[key];
     Uint8List? bytes;
     try {
-      final response = await MClient.init(
-        reqcopyWith: {'useDartHttpClient': true},
-      ).get(Uri.parse(trimmed), headers: headers).timeout(
-        const Duration(seconds: 8),
-      );
+      final response =
+          await MClient.init(reqcopyWith: {'useDartHttpClient': true})
+              .get(Uri.parse(trimmed), headers: headers)
+              .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         bytes = response.bodyBytes;
       }
@@ -1460,8 +1460,10 @@ class WatchtowerNotificationService {
     if (cached != null) return cached;
     if (_coverFilePending.add(cacheKey)) {
       unawaited(
-        coverFilePath(trimmed, headers: headers)
-            .whenComplete(() => _coverFilePending.remove(cacheKey)),
+        coverFilePath(
+          trimmed,
+          headers: headers,
+        ).whenComplete(() => _coverFilePending.remove(cacheKey)),
       );
     }
     return null;
@@ -2284,6 +2286,15 @@ class WatchtowerNotificationService {
     String? version,
   }) async {
     if (!_supported) return;
+    final now = DateTime.now();
+    final finished = total > 0 && received >= total;
+    final last = _lastProgressAt;
+    if (!finished &&
+        last != null &&
+        now.difference(last) < const Duration(milliseconds: 400)) {
+      return;
+    }
+    _lastProgressAt = now;
     if (!_initialized) await init();
     final knownTotal = total > 0;
     final pct = knownTotal
