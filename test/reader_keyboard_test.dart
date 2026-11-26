@@ -150,6 +150,13 @@ void main() {
     final node = FocusNode(debugLabel: 'test-reader-volume');
     addTearDown(node.dispose);
 
+    // The reader claims volume keys through a global handler, not the focus
+    // tree: a focus node only sees keys while it holds focus, and an unclaimed
+    // key is redispatched to the platform, which raises the volume.
+    bool claim(KeyEvent event) => handler.claimVolumeKeyEvent(event);
+    HardwareKeyboard.instance.addHandler(claim);
+    addTearDown(() => HardwareKeyboard.instance.removeHandler(claim));
+
     await tester.pumpWidget(
       MaterialApp(
         home: handler.wrapWithKeyboardListener(
@@ -177,5 +184,68 @@ void main() {
 
     expect(calls.volumeUp, 1);
     expect(calls.volumeDown, 1);
+  });
+
+  testWidgets('the focus path does not turn the page a second time', (
+    tester,
+  ) async {
+    final calls = _Calls();
+    final handler = calls.handler();
+    final node = FocusNode(debugLabel: 'test-reader-volume-double');
+    addTearDown(node.dispose);
+
+    bool claim(KeyEvent event) => handler.claimVolumeKeyEvent(event);
+    HardwareKeyboard.instance.addHandler(claim);
+    addTearDown(() => HardwareKeyboard.instance.removeHandler(claim));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: handler.wrapWithKeyboardListener(
+          focusNode: node,
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(node.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.audioVolumeUp);
+    await tester.pump();
+
+    // Both HardwareKeyboard handlers and the focus tree receive every event.
+    // Handling volume keys in both places turned the page twice per press.
+    expect(calls.volumeUp, 1);
+  });
+
+  testWidgets('a locked reader claims volume keys without turning the page', (
+    tester,
+  ) async {
+    final calls = _Calls();
+    final handler = calls.handler();
+    final node = FocusNode(debugLabel: 'test-reader-volume-locked');
+    addTearDown(node.dispose);
+
+    // Mirrors `_claimVolumeKey` in the reader while `_isLocked` is true.
+    bool claim(KeyEvent event) => handler.claimsVolumeKey(event);
+    HardwareKeyboard.instance.addHandler(claim);
+    addTearDown(() => HardwareKeyboard.instance.removeHandler(claim));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: handler.wrapWithKeyboardListener(
+          focusNode: node,
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Still claimed, so the system volume does not move behind the lock.
+    expect(
+      await tester.sendKeyEvent(LogicalKeyboardKey.audioVolumeUp),
+      isTrue,
+    );
+    await tester.pump();
+    expect(calls.volumeUp, 0);
   });
 }

@@ -159,6 +159,34 @@ class ReaderKeyboardHandler {
       (event.logicalKey == LogicalKeyboardKey.audioVolumeDown &&
           onVolumeDown != null);
 
+  /// Claims a volume key for this reader, independently of keyboard focus.
+  ///
+  /// Why this exists: Flutter's Android embedder sends the key to Dart and,
+  /// when no handler claims it, `KeyboardManager` calls `onUnhandled()` →
+  /// `redispatch()`, which hands the event back to the platform and moves the
+  /// system volume. A `Focus` node only receives keys while it actually holds
+  /// focus, so relying on it left the key unclaimed as soon as anything else
+  /// took focus — the volume went up and the page never turned.
+  ///
+  /// Register this with `HardwareKeyboard.instance.addHandler`, which receives
+  /// every key regardless of focus (the same "consume before anything else"
+  /// position Mihon takes with `onPreviewKeyEvent`).
+  ///
+  /// Returns whether [event] was claimed. Both the down and the up event are
+  /// claimed: claiming only the down would still redispatch the up.
+  bool claimVolumeKeyEvent(KeyEvent event) {
+    if (!_isOwnedVolumeKey(event)) return false;
+    if (event is KeyDownEvent) handleKeyEvent(event);
+    return true;
+  }
+
+  /// Whether [event] is a volume key this reader owns, without acting on it.
+  ///
+  /// Used while the screen is locked: the key must still be claimed so the
+  /// platform does not fall back to raising the volume, but it must not turn
+  /// the page.
+  bool claimsVolumeKey(KeyEvent event) => _isOwnedVolumeKey(event);
+
   /// Handles a key event and returns true if it was handled.
   bool handleKeyEvent(KeyEvent event, {bool isReverseHorizontal = false}) {
     if (event is! KeyDownEvent) return false;
@@ -237,17 +265,17 @@ class ReaderKeyboardHandler {
       autofocus: true,
       focusNode: focusNode,
       onKeyEvent: (node, event) {
+        // Volume keys are deliberately not handled here. They are claimed by
+        // the global handler ([claimVolumeKeyEvent], registered through
+        // `HardwareKeyboard.addHandler`) because a focus node only sees keys
+        // while it holds focus. Both destinations receive every event, so
+        // handling them here too would turn the page twice.
+        if (_isOwnedVolumeKey(event)) return KeyEventResult.ignored;
         final handled = handleKeyEvent(
           event,
           isReverseHorizontal: isReverseHorizontal,
         );
-        // Volume keys must be reported as handled, not merely acted on: on
-        // Android the host only skips its own volume handling when the
-        // framework claims the event. Reporting the navigation keys as ignored
-        // keeps their previous bubbling behaviour unchanged.
-        return handled && _isOwnedVolumeKey(event)
-            ? KeyEventResult.handled
-            : KeyEventResult.ignored;
+        return handled ? KeyEventResult.handled : KeyEventResult.ignored;
       },
       child: child,
     );

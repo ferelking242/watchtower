@@ -218,6 +218,20 @@ class _MangaChapterPageGalleryState
   /// reader's subscription.
   Object? _volumeToken;
 
+  /// The reader's key handler, kept in a field because
+  /// `HardwareKeyboard.removeHandler` matches on identity.
+  ReaderKeyboardHandler? _keyboardHandler;
+
+  /// Set while the handler is registered on `HardwareKeyboard`.
+  bool _keyboardHandlerRegistered = false;
+
+  /// Single tear-off of [_claimVolumeKey].
+  ///
+  /// `HardwareKeyboard.removeHandler` matches with `identical`, so the same
+  /// closure object must be used for both add and remove. Recreating the
+  /// tear-off per call risks leaving the handler registered after dispose.
+  late final bool Function(KeyEvent) _volumeKeyCallback = _claimVolumeKey;
+
   /// Flag to prevent fullscreen from being disabled when navigating between
   /// chapters via pushReplacement. The old widget's dispose runs after the new
   /// widget is created, which would clobber the new reader's fullscreen state.
@@ -242,6 +256,11 @@ class _MangaChapterPageGalleryState
     _photoViewScaleStateController.dispose();
     _extendedController.dispose();
     _keyboardFocusNode.dispose();
+    if (_keyboardHandlerRegistered) {
+      HardwareKeyboard.instance.removeHandler(_volumeKeyCallback);
+      _keyboardHandlerRegistered = false;
+      _keyboardHandler = null;
+    }
     clearGestureDetailsCache();
     if (_isNavigatingToChapter) {
       _isNavigatingToChapter = false;
@@ -480,6 +499,50 @@ class _MangaChapterPageGalleryState
     return _readerController.getNextChapter();
   }
 
+  /// Keeps the global hardware-key handler in step with the reader.
+  ///
+  /// The volume keys are claimed through `HardwareKeyboard.instance`, not
+  /// through the focus tree: a focus node only receives keys while it holds
+  /// focus, and Flutter redispatches an unclaimed key to the platform, which
+  /// is exactly how a volume press ended up raising the system volume instead
+  /// of turning the page. Registering globally means the reader claims the key
+  /// wherever focus happens to be.
+  void _syncKeyboardHandler(
+    ReaderKeyboardHandler handler, {
+    required bool volumeNavEnabled,
+  }) {
+    if (!volumeNavEnabled) {
+      if (_keyboardHandlerRegistered) {
+        HardwareKeyboard.instance.removeHandler(_volumeKeyCallback);
+        _keyboardHandlerRegistered = false;
+      }
+      _keyboardHandler = null;
+      return;
+    }
+    // The handler is rebuilt on every build and captures the current
+    // callbacks. `_volumeKeyCallback` is the registered listener and reads this
+    // field, so swapping the field is enough — registering again would leave
+    // duplicate listeners behind.
+    _keyboardHandler = handler;
+    if (!_keyboardHandlerRegistered) {
+      HardwareKeyboard.instance.addHandler(_volumeKeyCallback);
+      _keyboardHandlerRegistered = true;
+    }
+  }
+
+  /// Adapts [HardwareKeyboard]'s `bool` handler signature to the reader's
+  /// handler.
+  ///
+  /// While the screen is locked the key is still claimed but does nothing:
+  /// letting it through would raise the system volume, which is exactly the
+  /// behaviour the lock is there to prevent.
+  bool _claimVolumeKey(KeyEvent event) {
+    final handler = _keyboardHandler;
+    if (handler == null) return false;
+    if (_isLocked) return handler.claimsVolumeKey(event);
+    return handler.claimVolumeKeyEvent(event);
+  }
+
   /// Wires hardware volume keys to page navigation.
   ///
   /// Direction: Vol↑ = previous page, Vol↓ = next page (inverted when the
@@ -707,7 +770,7 @@ class _MangaChapterPageGalleryState
     // build), the keys reach the framework and are consumed here instead of
     // moving the system volume.
     final volumeNavEnabled = ref.watch(volumeButtonNavigationStateProvider);
-    return ReaderKeyboardHandler(
+    final handler = ReaderKeyboardHandler(
       onVolumeUp: volumeNavEnabled ? () => _handleVolumeKey(1) : null,
       onVolumeDown: volumeNavEnabled ? () => _handleVolumeKey(-1) : null,
       onPreviousPage: () {
@@ -756,7 +819,9 @@ class _MangaChapterPageGalleryState
           );
         }
       },
-    ).wrapWithKeyboardListener(
+    );
+    _syncKeyboardHandler(handler, volumeNavEnabled: volumeNavEnabled);
+    return handler.wrapWithKeyboardListener(
       isReverseHorizontal: _isReverseHorizontal,
       focusNode: _keyboardFocusNode,
       child: NotificationListener<UserScrollNotification>(
