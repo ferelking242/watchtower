@@ -195,9 +195,10 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
-  /// Video catalogues lead the dock: film, series, anime, then manga, novels,
-  /// music and games.
+  /// The all-in-one hub leads, then film, series, anime, manga, novels, music
+  /// and games.
   final items = [
+    '/WatchtowerHome',
     '/MoviesLibrary',
     '/SeriesLibrary',
     '/AnimeLibrary',
@@ -215,8 +216,8 @@ class NavigationOrderState extends _$NavigationOrderState {
     '/discover',
   ];
 
-  /// Order shipped before the video catalogues were regrouped. Kept only so an
-  /// untouched install follows the new default instead of keeping Anime first.
+  /// Order shipped before the hub was put first. Kept so an untouched install
+  /// follows the new default instead of keeping its old order.
   static const _previousDefault = [
     '/AnimeLibrary',
     '/MoviesLibrary',
@@ -226,6 +227,25 @@ class NavigationOrderState extends _$NavigationOrderState {
     '/NovelLibrary',
     '/MusicLibrary',
     '/GameLibrary',
+    '/history',
+    '/updates',
+    '/marketplace',
+    '/browse',
+    '/trackerLibrary',
+    '/settings',
+    '/discover',
+  ];
+
+  /// Order briefly shipped with Movies first (before the hub was added back).
+  static const _moviesFirstDefault = [
+    '/MoviesLibrary',
+    '/SeriesLibrary',
+    '/AnimeLibrary',
+    '/MangaLibrary',
+    '/NovelLibrary',
+    '/MusicLibrary',
+    '/GameLibrary',
+    '/Library',
     '/history',
     '/updates',
     '/marketplace',
@@ -264,7 +284,8 @@ class NavigationOrderState extends _$NavigationOrderState {
     final order =
         stored.isEmpty ||
             _sameOrder(stored, _legacyDefault) ||
-            _sameOrder(stored, _previousDefault)
+            _sameOrder(stored, _previousDefault) ||
+            _sameOrder(stored, _moviesFirstDefault)
         ? List<String>.from(items)
         : stored;
     return _checkMissingItems(order);

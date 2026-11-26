@@ -828,7 +828,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get read => 'Read';
 
   @override
-  String get watch => 'Watch';
+  String get watch => 'Videos';
 
   @override
   String get popular => 'Popular';
@@ -1118,7 +1118,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get extension_settings => 'Extension settings';
 
   @override
-  String get anime => 'Watch';
+  String get anime => 'Anime';
 
   @override
   String get manga => 'Manga';
@@ -2803,7 +2803,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catalog_tab_for_you => 'For you';
 
   @override
-  String get catalog_tab_watch => 'Watch';
+  String get catalog_tab_watch => 'Videos';
 
   @override
   String get catalog_tab_manga => 'Manga';

@@ -1125,7 +1125,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get extension_settings => 'Paramètres de l\'extension';
 
   @override
-  String get anime => 'Watch';
+  String get anime => 'Anime';
 
   @override
   String get manga => 'Manga';
@@ -2835,7 +2835,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get catalog_tab_for_you => 'Pour vous';
 
   @override
-  String get catalog_tab_watch => 'Watch';
+  String get catalog_tab_watch => 'Vidéos';
 
   @override
   String get catalog_tab_manga => 'Manga';

@@ -1550,7 +1550,7 @@ abstract class AppLocalizations {
   /// No description provided for @watch.
   ///
   /// In en, this message translates to:
-  /// **'Watch'**
+  /// **'Videos'**
   String get watch;
 
   /// No description provided for @popular.
@@ -2084,7 +2084,7 @@ abstract class AppLocalizations {
   /// No description provided for @anime.
   ///
   /// In en, this message translates to:
-  /// **'Watch'**
+  /// **'Anime'**
   String get anime;
 
   /// No description provided for @manga.
@@ -5228,7 +5228,7 @@ abstract class AppLocalizations {
   /// No description provided for @catalog_tab_watch.
   ///
   /// In en, this message translates to:
-  /// **'Watch'**
+  /// **'Videos'**
   String get catalog_tab_watch;
 
   /// No description provided for @catalog_tab_manga.
