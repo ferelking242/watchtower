@@ -181,6 +181,14 @@ class ProcessResult {
   ProcessResult(this.pid, this.exitCode, this.stdout, this.stderr);
 }
 
+/// Web stub for `dart:io`'s `ProcessException`, which the tunnel error
+/// formatter catches by type.
+class ProcessException implements Exception {
+  final String message;
+  ProcessException([this.message = '']);
+  @override String toString() => message;
+}
+
 class ProcessStartMode {
   static const ProcessStartMode normal           = ProcessStartMode._('normal');
   static const ProcessStartMode detached         = ProcessStartMode._('detached');

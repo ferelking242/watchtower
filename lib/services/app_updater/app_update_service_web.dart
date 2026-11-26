@@ -15,6 +15,11 @@ class AppUpdateService {
 
   String? get lastPhaseName => null;
 
+  /// Last known state, mirroring the io implementation. The update
+  /// notification no longer compiles without it on the web target.
+  UpdateInfoView get current =>
+      const UpdateInfoView(currentVersion: '', phase: 'upToDate');
+
   Stream<UpdateInfoView> get updates => const Stream<UpdateInfoView>.empty();
 
   Future<void> checkOnLaunch() async {}
