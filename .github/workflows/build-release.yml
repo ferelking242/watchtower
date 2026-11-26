@@ -365,38 +365,21 @@ jobs:
           PREV=$(gh release list --limit 100 --json tagName \
             --jq '[.[] | select(.tagName | startswith("android-"))][0].tagName' \
             2>/dev/null || true)
-          COMMITS=""
+          RANGE="-20"
           if [ -n "$PREV" ]; then
             git fetch --depth=1 origin "refs/tags/${PREV}:refs/tags/${PREV}" \
               >/dev/null 2>&1 || true
-            COMMITS=$(git log --pretty='%s' "${PREV}..HEAD" 2>/dev/null \
-              | head -n 80 || true)
+            RANGE="${PREV}..HEAD"
           fi
-          if [ -z "$COMMITS" ]; then
-            COMMITS=$(git log --pretty='%s' -n 20 HEAD)
-          fi
-          # Grouped changelog (Mihon-style): the in-app update screen renders
-          # this markdown, so keep it to headings + bullets only.
-          section() {
-            local title="$1" pattern="$2" lines
-            lines=$(printf '%s\n' "$COMMITS" | grep -Ei "$pattern" | sed 's/^/- /' || true)
-            if [ -n "$lines" ]; then
-              printf '### %s\n\n%s\n\n' "$title" "$lines"
-            fi
-            return 0
-          }
           NOTES=$(mktemp)
+          # Grouped changelog (Mihon-style): the in-app update screen renders
+          # this markdown, so keep it to headings, bullets and short details.
+          BODY=$(python3 tools/release_notes.py "$RANGE" 2>/dev/null || true)
+          if [ -z "$BODY" ]; then
+            BODY=$(git log --pretty='- %s' -n 20 HEAD)
+          fi
           {
-            section '✨ Nouveautés' '^(feat|feature)(\(|:|!)'
-            section '🚀 Améliorations' '^(perf|polish|refactor|improve|ui|style)(\(|:|!)'
-            section '🐛 Corrections' '^(fix|hotfix|bugfix)(\(|:|!)'
-            section '🔧 Maintenance' '^(chore|docs|build|ci|test|revert)(\(|:|!)'
-            OTHERS=$(printf '%s\n' "$COMMITS" \
-              | grep -Eiv '^(feat|feature|perf|polish|refactor|improve|ui|style|fix|hotfix|bugfix|chore|docs|build|ci|test|revert)(\(|:|!)' \
-              | sed 's/^/- /' || true)
-            if [ -n "$OTHERS" ]; then
-              printf '### 📦 Autres\n\n%s\n\n' "$OTHERS"
-            fi
+            printf '%s\n\n' "$BODY"
             printf "APK Android arm64 construit depuis \`main\`.\n\n"
             printf "SHA-256 : %s\n" "$SUM"
             printf "Taille : %s octets (exactement — un fichier plus petit est tronqué).\n" "$BYTES"

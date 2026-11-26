@@ -30,18 +30,12 @@ class WatchtowerUpdateNotifier implements UpdateNotifier {
   @override
   Future<void> showDownloadProgress(UpdateState state) async {
     final total = state.info?.updateSizeBytes ?? 0;
-    final progress = state.progress ?? 0;
-    if (total > 0) {
-      await _notifications.showDownloadProgress(
-        (progress * total).round(),
-        total,
-      );
-    } else {
-      await _notifications.showDownloadProgress(
-        (progress * 100).round(),
-        100,
-      );
-    }
+    final progress = state.progress;
+    await _notifications.showDownloadProgress(
+      total > 0 && progress != null ? (progress * total).round() : 0,
+      total,
+      version: state.info?.latestVersion ?? state.candidate?.version,
+    );
   }
 
   @override
@@ -119,8 +113,9 @@ class AppUpdateService {
   /// Set by CI (`--dart-define=APP_UPDATER_URL=...`) when the build was
   /// published to an app_updater server. Empty for plain builds.
   static const String _ciFeedUrl = String.fromEnvironment('APP_UPDATER_URL');
-  static const String _ciFeedToken =
-      String.fromEnvironment('APP_UPDATER_TOKEN');
+  static const String _ciFeedToken = String.fromEnvironment(
+    'APP_UPDATER_TOKEN',
+  );
 
   AppUpdateController? _controller;
   bool _launchChecked = false;
@@ -210,6 +205,10 @@ class AppUpdateService {
   /// Every state change, mapped to the plain model used by the UI.
   Stream<UpdateInfoView> get updates => controller.states.map(_viewOf);
 
+  /// Latest known state, without running a check. Used when the update screen
+  /// is opened from a notification while a download is already running.
+  UpdateInfoView get current => _viewOf(controller.state);
+
   UpdateInfoView _viewOf(UpdateState state) {
     final info = state.info;
     final candidate = state.candidate;
@@ -219,6 +218,7 @@ class AppUpdateService {
       releaseNotes: info?.releaseNotes ?? candidate?.releaseNotes,
       sizeBytes: info?.updateSizeBytes ?? candidate?.artifactFor()?.sizeBytes,
       publishedAt: info?.releaseDate ?? candidate?.publishedAt,
+      releaseUrl: candidate?.releaseUrl,
       updateAvailable: state.updateAvailable,
       phase: state.phase.name,
       progress: state.progress,
@@ -277,8 +277,9 @@ class AppUpdateService {
         entries.add(
           UpdateHistoryEntry(
             version: version,
-            publishedAt:
-                DateTime.tryParse(release['published_at']?.toString() ?? ''),
+            publishedAt: DateTime.tryParse(
+              release['published_at']?.toString() ?? '',
+            ),
             notes: release['body']?.toString(),
             isCurrent: VersionUtils.compare(version, installed) == 0,
           ),

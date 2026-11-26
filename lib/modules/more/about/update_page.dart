@@ -4,10 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/services/app_updater/app_update_service.dart'
     if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/services/app_updater/update_models.dart';
+
+const String _kReleaseFallbackUrl =
+    'https://github.com/ferelking242/watchtower/releases';
 
 /// Full-screen update sheet: changelog rendered like Mihon's update screen,
 /// download / later actions pinned at the bottom and the release history.
@@ -20,51 +24,26 @@ class UpdatePage extends StatefulWidget {
   State<UpdatePage> createState() => _UpdatePageState();
 }
 
-/// Drops the technical trailer CI appends to the release body (APK name,
-/// checksum, size, compare link) and the duplicated section heading, so the
-/// update screen only shows the changelog itself.
-@visibleForTesting
-String cleanReleaseNotes(String raw) {
-  final lines = raw.split('\n');
-  final kept = <String>[];
-  for (final line in lines) {
-    final trimmed = line.trim().toLowerCase();
-    if (trimmed.startsWith('apk android') ||
-        trimmed.startsWith('sha-256') ||
-        trimmed.startsWith('sha256') ||
-        trimmed.startsWith('taille :') ||
-        trimmed.startsWith('taille attendue') ||
-        trimmed.startsWith('**comparaison**') ||
-        trimmed.startsWith('build automatique') ||
-        trimmed.startsWith('built automatically')) {
-      continue;
-    }
-    kept.add(line);
-  }
-  var text = kept.join('\n').trim();
-  text = text.replaceFirst(
-    RegExp(r'^#{1,3}\s*(nouveautés|what.?s new|changes?)\s*\n+',
-        caseSensitive: false),
-    '',
-  );
-  text = text.replaceFirst(
-    RegExp(r'^#\s*Watchtower\s+[\d.]+\s*\n+', caseSensitive: false),
-    '',
-  );
-  return text.trim();
-}
-
-class _UpdatePageState extends State<UpdatePage> {
+class _UpdatePageState extends State<UpdatePage>
+    with SingleTickerProviderStateMixin {
   static const _historyPreview = 4;
 
   late UpdateInfoView _info = widget.initial;
   StreamSubscription<UpdateInfoView>? _subscription;
-  late final Future<List<UpdateHistoryEntry>> _history =
-      AppUpdateService.instance.history();
+  late final Future<List<UpdateHistoryEntry>> _history = AppUpdateService
+      .instance
+      .history();
+  late final AnimationController _glow = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 6),
+  )..repeat(reverse: true);
+
   bool _busy = false;
   bool _showAllHistory = false;
 
   bool get _isFrench => Localizations.localeOf(context).languageCode == 'fr';
+  bool get _hasUpdate =>
+      _info.updateAvailable || _info.isReady || _info.isDownloading;
 
   @override
   void initState() {
@@ -77,6 +56,7 @@ class _UpdatePageState extends State<UpdatePage> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _glow.dispose();
     super.dispose();
   }
 
@@ -108,18 +88,39 @@ class _UpdatePageState extends State<UpdatePage> {
     }
   }
 
-  Future<void> _downloadInBackground() async {
+  Future<void> _recheck() async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await AppUpdateService.instance.checkAndDownload();
+      final view = await AppUpdateService.instance.checkNow();
       if (!mounted) return;
-      Navigator.of(context).pop();
-      botToast(_isFrench
-          ? 'Téléchargement en arrière-plan'
-          : 'Downloading in the background');
+      setState(() => _info = view);
+      if (!view.updateAvailable) {
+        botToast(
+          _isFrench ? 'Watchtower est à jour' : 'Watchtower is up to date',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Leaves the screen while the transfer keeps running in the service.
+  void _sendToBackground() {
+    Navigator.of(context).pop();
+    botToast(
+      _isFrench
+          ? 'Téléchargement en arrière-plan'
+          : 'Downloading in the background',
+    );
+  }
+
+  Future<void> _openReleasePage() async {
+    final url = _info.releaseUrl ?? _kReleaseFallbackUrl;
+    try {
+      await launchUrlString(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      botToast(_isFrench ? 'Lien indisponible' : 'Link unavailable');
     }
   }
 
@@ -127,43 +128,92 @@ class _UpdatePageState extends State<UpdatePage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final background =
-        isDark ? const Color(0xFF12151A) : cs.surfaceContainerLowest;
+    final background = isDark
+        ? const Color(0xFF0F1216)
+        : cs.surfaceContainerLowest;
 
     return Scaffold(
       backgroundColor: background,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            ListView(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+      body: Stack(
+        children: [
+          Positioned.fill(child: _aurora(cs, isDark)),
+          SafeArea(
+            bottom: false,
+            child: Stack(
               children: [
-                _header(cs),
-                const SizedBox(height: 22),
-                _notes(cs),
-                const SizedBox(height: 24),
-                _historySection(cs),
+                ListView(
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+                  children: [
+                    _header(cs),
+                    const SizedBox(height: 22),
+                    _notes(cs),
+                    const SizedBox(height: 24),
+                    _historySection(cs),
+                  ],
+                ),
+                Positioned(
+                  top: 4,
+                  right: 6,
+                  child: IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: _isFrench ? 'Fermer' : 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
               ],
             ),
-            Positioned(
-              top: 4,
-              right: 6,
-              child: IconButton(
-                icon: const Icon(Icons.close_rounded),
-                tooltip: _isFrench ? 'Fermer' : 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: _bottomBar(cs, isDark),
     );
   }
 
+  /// Two soft light blobs drifting behind the content.
+  Widget _aurora(ColorScheme cs, bool isDark) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _glow,
+        builder: (context, _) {
+          final t = Curves.easeInOut.transform(_glow.value);
+          return Stack(
+            children: [
+              Positioned(
+                top: -120 + (t * 40),
+                left: -80 + (t * 30),
+                child: _blob(
+                  cs.primary.withValues(alpha: isDark ? 0.20 : 0.14),
+                  320,
+                ),
+              ),
+              Positioned(
+                top: 160 - (t * 50),
+                right: -110 + (t * 20),
+                child: _blob(
+                  cs.tertiary.withValues(alpha: isDark ? 0.12 : 0.10),
+                  280,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _blob(Color color, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+      ),
+    );
+  }
+
   Widget _header(ColorScheme cs) {
-    final latest = _info.latestVersion ?? '';
+    final latest = _info.latestVersion ?? _info.currentVersion;
     final details = [
       if (_info.sizeBytes != null) _formatBytes(_info.sizeBytes!),
       if (_info.publishedAt != null) _formatDate(_info.publishedAt!),
@@ -174,18 +224,45 @@ class _UpdatePageState extends State<UpdatePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(18),
+          AnimatedBuilder(
+            animation: _glow,
+            builder: (context, child) {
+              final t = Curves.easeInOut.transform(_glow.value);
+              return Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.22 + (t * 0.22)),
+                      blurRadius: 22 + (t * 18),
+                      spreadRadius: 1 + (t * 3),
+                    ),
+                  ],
+                ),
+                child: child,
+              );
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset(
+                'assets/app_icons/icon.png',
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 64,
+                  height: 64,
+                  color: cs.primary.withValues(alpha: 0.16),
+                  child: Icon(Icons.verified_rounded, color: cs.primary),
+                ),
+              ),
             ),
-            child: Icon(Icons.verified_rounded, color: cs.primary, size: 34),
           ),
           const SizedBox(height: 20),
           Text(
-            _isFrench ? 'Mise à jour disponible !' : 'Update available!',
+            _hasUpdate
+                ? (_isFrench ? 'Mise à jour disponible !' : 'Update available!')
+                : (_isFrench ? 'Vous êtes à jour !' : 'You are up to date!'),
             style: GoogleFonts.inter(
               fontSize: 27,
               fontWeight: FontWeight.w600,
@@ -257,9 +334,16 @@ class _UpdatePageState extends State<UpdatePage> {
   }
 
   Widget _bottomBar(ColorScheme cs, bool isDark) {
+    final downloading = _info.isDownloading;
+    final secondaryLabel = downloading
+        ? (_isFrench ? 'Mettre en arrière-plan' : 'Send to background')
+        : (_isFrench ? 'Pas maintenant' : 'Not now');
+
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF12151A) : cs.surface,
+        color: (isDark ? const Color(0xFF0F1216) : cs.surface).withValues(
+          alpha: 0.96,
+        ),
         border: Border(
           top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.25)),
         ),
@@ -277,7 +361,9 @@ class _UpdatePageState extends State<UpdatePage> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: downloading
+                          ? _sendToBackground
+                          : () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         side: BorderSide(
@@ -288,7 +374,7 @@ class _UpdatePageState extends State<UpdatePage> {
                         ),
                       ),
                       child: Text(
-                        _isFrench ? 'Pas maintenant' : 'Not now',
+                        secondaryLabel,
                         style: GoogleFonts.inter(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
@@ -296,35 +382,33 @@ class _UpdatePageState extends State<UpdatePage> {
                       ),
                     ),
                   ),
-                  if (!_info.isReady && !_info.isDownloading) ...[
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 56,
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: _busy ? null : _downloadInBackground,
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          side: BorderSide(
-                            color: cs.outlineVariant.withValues(alpha: 0.6),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 56,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: _openReleasePage,
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        side: BorderSide(
+                          color: cs.outlineVariant.withValues(alpha: 0.6),
                         ),
-                        child: Tooltip(
-                          message: _isFrench
-                              ? 'Télécharger en arrière-plan'
-                              : 'Download in the background',
-                          child: Icon(
-                            Icons.cloud_download_outlined,
-                            size: 20,
-                            color: cs.primary,
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Tooltip(
+                        message: _isFrench
+                            ? 'Voir la release sur GitHub'
+                            : 'View the release on GitHub',
+                        child: Icon(
+                          Icons.open_in_new_rounded,
+                          size: 19,
+                          color: cs.primary,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ],
@@ -336,14 +420,8 @@ class _UpdatePageState extends State<UpdatePage> {
 
   Widget _primaryAction(ColorScheme cs) {
     if (_info.isReady) {
-      return FilledButton(
+      return _roundButton(
         onPressed: _busy ? null : _install,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
-          ),
-        ),
         child: Text(
           _isFrench ? 'Installer' : 'Install',
           style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
@@ -353,53 +431,74 @@ class _UpdatePageState extends State<UpdatePage> {
 
     if (_info.isDownloading) {
       final progress = _info.progress;
-      return Container(
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: cs.primary.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 120,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor: cs.primary.withValues(alpha: 0.15),
+      final total = _info.sizeBytes;
+      final received = (total != null && progress != null)
+          ? (progress * total).round()
+          : null;
+      final label = total != null && received != null
+          ? '${_formatBytes(received)} / ${_formatBytes(total)}'
+                '  ·  ${(progress! * 100).round()} %'
+          : (_isFrench ? 'Téléchargement…' : 'Downloading…');
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: SizedBox(
+          height: 50,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: cs.primary.withValues(alpha: 0.12)),
+              FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: (progress ?? 0).clamp(0.015, 1),
+                child: ColoredBox(color: cs.primary.withValues(alpha: 0.55)),
+              ),
+              Center(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onPrimary,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              progress == null ? '…' : '${(progress * 100).round()} %',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: cs.primary,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
 
-    return FilledButton(
-      onPressed: _busy ? null : _download,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(50),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(25),
+    if (!_hasUpdate) {
+      return _roundButton(
+        onPressed: _busy ? null : _recheck,
+        child: Text(
+          _isFrench ? 'Vérifier à nouveau' : 'Check again',
+          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
         ),
-      ),
+      );
+    }
+
+    return _roundButton(
+      onPressed: _busy ? null : _download,
       child: Text(
         _isFrench ? 'Télécharger' : 'Download',
         style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
       ),
+    );
+  }
+
+  Widget _roundButton({
+    required VoidCallback? onPressed,
+    required Widget child,
+  }) {
+    return FilledButton(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(50),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      ),
+      child: child,
     );
   }
 
@@ -409,8 +508,9 @@ class _UpdatePageState extends State<UpdatePage> {
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <UpdateHistoryEntry>[];
         if (all.isEmpty) return const SizedBox.shrink();
-        final visible =
-            _showAllHistory ? all : all.take(_historyPreview).toList();
+        final visible = _showAllHistory
+            ? all
+            : all.take(_historyPreview).toList();
         final hidden = all.length - visible.length;
 
         return Column(
@@ -443,8 +543,8 @@ class _UpdatePageState extends State<UpdatePage> {
                   _showAllHistory
                       ? (_isFrench ? 'Réduire' : 'Show less')
                       : (_isFrench
-                          ? 'Afficher tout ($hidden)'
-                          : 'Show all ($hidden)'),
+                            ? 'Afficher tout ($hidden)'
+                            : 'Show all ($hidden)'),
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -537,6 +637,42 @@ class _UpdatePageState extends State<UpdatePage> {
     String two(int value) => value.toString().padLeft(2, '0');
     return '${two(local.day)}/${two(local.month)}/${local.year}';
   }
+}
+
+/// Drops the technical trailer CI appends to the release body (APK name,
+/// checksum, size, compare link) and the duplicated section heading, so the
+/// update screen only shows the changelog itself.
+@visibleForTesting
+String cleanReleaseNotes(String raw) {
+  final lines = raw.split('\n');
+  final kept = <String>[];
+  for (final line in lines) {
+    final trimmed = line.trim().toLowerCase();
+    if (trimmed.startsWith('apk android') ||
+        trimmed.startsWith('sha-256') ||
+        trimmed.startsWith('sha256') ||
+        trimmed.startsWith('taille :') ||
+        trimmed.startsWith('taille attendue') ||
+        trimmed.startsWith('**comparaison**') ||
+        trimmed.startsWith('build automatique') ||
+        trimmed.startsWith('built automatically')) {
+      continue;
+    }
+    kept.add(line);
+  }
+  var text = kept.join('\n').trim();
+  text = text.replaceFirst(
+    RegExp(
+      r'^#{1,3}\s*(nouveautés|what.?s new|changes?)\s*\n+',
+      caseSensitive: false,
+    ),
+    '',
+  );
+  text = text.replaceFirst(
+    RegExp(r'^#\s*Watchtower\s+[\d.]+\s*\n+', caseSensitive: false),
+    '',
+  );
+  return text.trim();
 }
 
 class _NotesMarkdown extends StatelessWidget {

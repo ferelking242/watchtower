@@ -10,6 +10,7 @@ class UpdateInfoView {
     this.releaseNotes,
     this.sizeBytes,
     this.publishedAt,
+    this.releaseUrl,
     this.updateAvailable = false,
     this.phase = 'idle',
     this.progress,
@@ -21,6 +22,9 @@ class UpdateInfoView {
   final String? releaseNotes;
   final int? sizeBytes;
   final DateTime? publishedAt;
+
+  /// Web page of the release on the code host, when the source exposes it.
+  final String? releaseUrl;
   final bool updateAvailable;
 
   /// `idle`, `checking`, `available`, `downloading`, `readyToInstall`,
@@ -40,6 +44,7 @@ class UpdateInfoView {
     String? releaseNotes,
     int? sizeBytes,
     DateTime? publishedAt,
+    String? releaseUrl,
     bool? updateAvailable,
     String? phase,
     double? progress,
@@ -51,6 +56,7 @@ class UpdateInfoView {
       releaseNotes: releaseNotes ?? this.releaseNotes,
       sizeBytes: sizeBytes ?? this.sizeBytes,
       publishedAt: publishedAt ?? this.publishedAt,
+      releaseUrl: releaseUrl ?? this.releaseUrl,
       updateAvailable: updateAvailable ?? this.updateAvailable,
       phase: phase ?? this.phase,
       progress: progress ?? this.progress,
