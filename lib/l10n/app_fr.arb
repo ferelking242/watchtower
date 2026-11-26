@@ -4077,5 +4077,9 @@
         "type": "String"
       }
     }
-  }
+  },
+  "chapter_sheet_sort_source": "Ordre de la source",
+  "chapter_sheet_sort_newest": "Plus récent d'abord",
+  "chapter_sheet_sort_oldest": "Plus ancien d'abord",
+  "chapter_sheet_sort_alpha": "A\u2013Z"
 }

@@ -3,8 +3,9 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/modules/manga/reader/widgets/btn_chapter_list_dialog.dart';
+import 'package:watchtower/modules/manga/reader/widgets/chapter_sheet.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -16,7 +17,7 @@ import 'package:watchtower/utils/utils.dart';
 /// Displays:
 /// - Back button
 /// - Manga name and chapter title
-/// - Chapter list button
+/// - Chapter sheet button
 /// - Bookmark button
 /// - Web view button (for non-local sources)
 ///
@@ -99,7 +100,10 @@ class ReaderAppBar extends ConsumerWidget {
             centerTitle: false,
             automaticallyImplyLeading: false,
             titleSpacing: 0,
-            leading: BackButton(onPressed: onBackPressed),
+            leading: IconButton(
+              onPressed: onBackPressed,
+              icon: const Icon(Broken.arrow_left_2),
+            ),
             title: _buildTitle(context),
             actions: _buildActions(context, isLocalArchive),
             backgroundColor: backgroundColor(context),
@@ -133,20 +137,20 @@ class ReaderAppBar extends ConsumerWidget {
 
   List<Widget> _buildActions(BuildContext context, bool isLocalArchive) {
     return [
-      // Chapter list button
       btnToShowChapterListDialog(context, context.l10n.chapters, chapter),
 
       // Bookmark button
       IconButton(
         onPressed: onBookmarkPressed,
-        icon: Icon(
-          isBookmarked ? Icons.bookmark : Icons.bookmark_border_outlined,
-        ),
+        icon: Icon(isBookmarked ? Broken.bookmark : Broken.bookmark_2),
       ),
 
       // Web view button (only for non-local sources)
       if (!isLocalArchive && onWebViewPressed != null)
-        IconButton(onPressed: onWebViewPressed, icon: const Icon(Icons.public)),
+        IconButton(
+          onPressed: onWebViewPressed,
+          icon: const Icon(Broken.global),
+        ),
 
       // Padlock: locks every tap zone so a stray touch cannot turn the page.
       IconButton(
@@ -154,7 +158,7 @@ class ReaderAppBar extends ConsumerWidget {
         tooltip: isLocked
             ? context.l10n.reader_unlock_screen
             : context.l10n.reader_lock_screen,
-        icon: Icon(isLocked ? Icons.lock_rounded : Icons.lock_open_rounded),
+        icon: Icon(isLocked ? Broken.lock : Broken.lock_circle),
       ),
     ];
   }

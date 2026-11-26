@@ -13,7 +13,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/utils/window/desktop_fullscreen.dart';
-import 'package:watchtower/modules/manga/reader/widgets/btn_chapter_list_dialog.dart';
+import 'package:watchtower/modules/manga/reader/widgets/chapter_sheet.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/novel/novel_reader_controller_provider.dart';
 import 'package:watchtower/modules/novel/tts/novel_tts_service.dart';

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
@@ -30,7 +31,7 @@ class ChapterTransitionPage extends StatelessWidget {
             children: [
               // Icône de transition
               Icon(
-                Icons.auto_stories_outlined,
+                Broken.book_1,
                 size: screenWidth * 0.16,
                 color: Theme.of(context).colorScheme.primary,
               ),
@@ -87,8 +88,8 @@ class ChapterTransitionPage extends StatelessWidget {
 
               Icon(
                 nextChapter != null
-                    ? Icons.keyboard_arrow_down
-                    : Icons.check_circle_outline,
+                    ? Broken.arrow_down_1
+                    : Broken.tick_circle,
                 size: screenWidth * 0.08,
                 color: nextChapter != null
                     ? Theme.of(context).colorScheme.primary
@@ -167,7 +168,7 @@ class ChapterTransitionPage extends StatelessWidget {
                   child: Column(
                     children: [
                       Icon(
-                        Icons.last_page,
+                        Broken.arrow_down_2,
                         size: screenWidth * 0.06,
                         color: Theme.of(
                           context,

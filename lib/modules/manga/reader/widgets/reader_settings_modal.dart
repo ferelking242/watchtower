@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/manga/reader/providers/color_filter_provider.dart';
 import 'package:watchtower/modules/manga/reader/widgets/color_filter_widget.dart';
@@ -260,7 +261,7 @@ class _ReadingModeTab extends ConsumerWidget {
                     children: [
                       SwitchListTile(
                         secondary: Icon(
-                          valueT ? Icons.timer : Icons.timer_outlined,
+                          Broken.timer,
                         ),
                         value: valueT,
                         title: Text(
@@ -685,7 +686,7 @@ class _CustomFilterTab extends ConsumerWidget {
           ),
           if (!isDefault)
             IconButton(
-              icon: const Icon(Icons.replay, size: 18),
+              icon: const Icon(Broken.refresh_2, size: 18),
               onPressed: () => onChanged(defaultValue),
               tooltip: l10nLocalizations(context)!.reset,
               padding: EdgeInsets.zero,
@@ -715,7 +716,7 @@ class _VolumeButtonSection extends ConsumerWidget {
     return Column(
       children: [
         SwitchListTile(
-          secondary: const Icon(Icons.volume_up_outlined),
+          secondary: const Icon(Broken.volume_up),
           value: enabled,
           title: Text(
             context.l10n.reader_volume_buttons_title,
@@ -739,7 +740,7 @@ class _VolumeButtonSection extends ConsumerWidget {
               transitionBuilder: (child, anim) =>
                   RotationTransition(turns: anim, child: child),
               child: Icon(
-                inverted ? Icons.swap_vert : Icons.swap_vert_outlined,
+                Broken.arrow_swap_horizontal,
                 key: ValueKey(inverted),
               ),
             ),

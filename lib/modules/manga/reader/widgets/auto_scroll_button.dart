@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 /// Auto-scroll play/pause button for continuous reading modes.
 ///
@@ -48,7 +49,7 @@ class ReaderAutoScrollButton extends StatelessWidget {
                       builder: (context, isPlaying, child) => IconButton(
                         onPressed: onToggle,
                         icon: Icon(
-                          isPlaying ? Icons.pause_circle : Icons.play_circle,
+                          isPlaying ? Broken.pause_circle : Broken.play_circle,
                         ),
                       ),
                     )

@@ -13518,4 +13518,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String settings_purged_downloads(String count) {
     return 'Nettoyés : $count';
   }
+
+  @override
+  String get chapter_sheet_sort_source => 'Ordre de la source';
+
+  @override
+  String get chapter_sheet_sort_newest => 'Plus récent d\'abord';
+
+  @override
+  String get chapter_sheet_sort_oldest => 'Plus ancien d\'abord';
+
+  @override
+  String get chapter_sheet_sort_alpha => 'A–Z';
 }

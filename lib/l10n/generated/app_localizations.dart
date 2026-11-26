@@ -23741,6 +23741,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cleaned up: {count}'**
   String settings_purged_downloads(String count);
+
+  /// Chapter sheet sort order: the order the source lists the chapters in.
+  ///
+  /// In en, this message translates to:
+  /// **'Source order'**
+  String get chapter_sheet_sort_source;
+
+  /// Chapter sheet sort order: most recently uploaded chapter first.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest first'**
+  String get chapter_sheet_sort_newest;
+
+  /// Chapter sheet sort order: oldest uploaded chapter first.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest first'**
+  String get chapter_sheet_sort_oldest;
+
+  /// Chapter sheet sort order: by chapter name.
+  ///
+  /// In en, this message translates to:
+  /// **'A–Z'**
+  String get chapter_sheet_sort_alpha;
 }
 
 class _AppLocalizationsDelegate

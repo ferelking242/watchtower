@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
@@ -36,7 +37,7 @@ class CustomArrowPopupMenuButton<T> extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.check,
+                    Broken.check,
                     color: d == value ? Colors.white : Colors.transparent,
                   ),
                   const SizedBox(width: 7),
@@ -69,7 +70,7 @@ class CustomArrowPopupMenuButton<T> extends StatelessWidget {
                 children: [
                   Text(title),
                   const SizedBox(width: 20),
-                  const Icon(Icons.keyboard_arrow_down_outlined),
+                  const Icon(Broken.arrow_down_1),
                 ],
               ),
             ],

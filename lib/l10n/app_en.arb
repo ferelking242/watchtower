@@ -4386,5 +4386,21 @@
         "type": "String"
       }
     }
+  },
+  "chapter_sheet_sort_source": "Source order",
+  "@chapter_sheet_sort_source": {
+    "description": "Chapter sheet sort order: the order the source lists the chapters in."
+  },
+  "chapter_sheet_sort_newest": "Newest first",
+  "@chapter_sheet_sort_newest": {
+    "description": "Chapter sheet sort order: most recently uploaded chapter first."
+  },
+  "chapter_sheet_sort_oldest": "Oldest first",
+  "@chapter_sheet_sort_oldest": {
+    "description": "Chapter sheet sort order: oldest uploaded chapter first."
+  },
+  "chapter_sheet_sort_alpha": "A\u2013Z",
+  "@chapter_sheet_sort_alpha": {
+    "description": "Chapter sheet sort order: by chapter name."
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/manga/reader/widgets/reader_lock_overlay.dart';
 
 void main() {
@@ -54,7 +55,7 @@ void main() {
     var unlocks = 0;
     await pumpOverlay(tester, onUnlock: () => unlocks++);
 
-    await tester.tap(find.byIcon(Icons.lock_rounded));
+    await tester.tap(find.byIcon(Broken.lock));
     await tester.pump();
 
     expect(unlocks, 1);

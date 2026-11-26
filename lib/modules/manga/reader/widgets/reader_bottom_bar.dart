@@ -1,9 +1,9 @@
 import 'dart:math';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
@@ -161,7 +161,7 @@ class ReaderBottomBar extends ConsumerWidget {
                 icon: Transform.scale(
                   scaleX: 1,
                   child: Icon(
-                    Icons.skip_previous_rounded,
+                    Broken.previous,
                     color: hasPreviousChapter
                         ? Theme.of(context).textTheme.bodyLarge!.color
                         : Theme.of(
@@ -254,7 +254,7 @@ class ReaderBottomBar extends ConsumerWidget {
                 icon: Transform.scale(
                   scaleX: 1,
                   child: Icon(
-                    Icons.skip_next_rounded,
+                    Broken.next,
                     color: hasNextChapter
                         ? Theme.of(context).textTheme.bodyLarge!.color
                         : Theme.of(
@@ -326,7 +326,7 @@ class ReaderBottomBar extends ConsumerWidget {
           AdaptiveOverlayMenu<ReaderMode>(
             menuWidth: 240,
             padding: const EdgeInsets.all(8),
-            icon: const Icon(Icons.app_settings_alt_outlined),
+            icon: const Icon(Broken.setting_2),
             initialValue: readerMode,
             itemBuilder: (context) => [
               for (var mode in ReaderMode.values)
@@ -335,7 +335,7 @@ class ReaderBottomBar extends ConsumerWidget {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.check,
+                        Broken.check,
                         size: 18,
                         // Inherit the panel's adaptive icon colour; the previous
                         // hard-coded white was only legible on the old black
@@ -365,7 +365,7 @@ class ReaderBottomBar extends ConsumerWidget {
                 },
                 icon: Stack(
                   children: [
-                    const Icon(Icons.crop_rounded),
+                    const Icon(Broken.crop),
                     if (!cropBorders)
                       Positioned(
                         right: 8,
@@ -390,15 +390,15 @@ class ReaderBottomBar extends ConsumerWidget {
             onPressed: !isHorizontalContinuous ? onPageModeToggle : null,
             icon: Icon(
               _isDoublePageMode
-                  ? CupertinoIcons.book_solid
-                  : CupertinoIcons.book,
+                  ? Broken.book_1
+                  : Broken.book,
             ),
           ),
 
           // Settings button
           IconButton(
             onPressed: onSettingsPressed,
-            icon: const Icon(Icons.settings_rounded),
+            icon: const Icon(Broken.setting_4),
           ),
         ],
       ),

@@ -47,6 +47,7 @@ import 'package:watchtower/modules/widgets/offline_content_state.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:watchtower/utils/constant.dart';
 
@@ -1835,8 +1836,8 @@ class _MangaChapterPageGalleryState
                           dense: true,
                           leading: Icon(
                             mode == current
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
+                                ? Broken.record_circle
+                                : Broken.record,
                           ),
                           title: Text(getReaderModeName(mode, ctx)),
                           onTap: () {

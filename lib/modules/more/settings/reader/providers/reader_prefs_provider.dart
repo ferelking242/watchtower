@@ -146,6 +146,38 @@ const kVolumeButtonNavigationKey = 'volume_button_navigation';
 /// Swaps the volume-key page direction (up = next page instead of previous).
 const kInvertVolumeButtonNavigationKey = 'invert_volume_button_navigation';
 
+// ── Chapter sheet ───────────────────────────────────────────────────────────
+
+const kChapterDisplayOptions = <String>['list', 'grid'];
+
+const kChapterGridSizes = <int>[2, 3, 4];
+
+const kChapterFilterOptions = <String>[
+  'all',
+  'unread',
+  'downloaded',
+  'bookmarked',
+];
+
+const kChapterSortOptions = <String>[
+  'source',
+  'newest',
+  'oldest',
+  'alpha',
+];
+
+/// List or grid layout for the in-reader chapter sheet.
+final chapterSheetDisplayProvider = _stringPref('chapter_sheet_display', 'list');
+
+/// Columns per row when the chapter sheet is in grid mode.
+final chapterSheetGridSizeProvider = _intPref('chapter_sheet_grid_size', 2);
+
+/// Which chapters the sheet shows.
+final chapterSheetFilterProvider = _stringPref('chapter_sheet_filter', 'all');
+
+/// Order of the chapters in the sheet.
+final chapterSheetSortProvider = _stringPref('chapter_sheet_sort', 'source');
+
 // ── Actions ─────────────────────────────────────────────────────────────────
 
 /// Show the action list on long press.

@@ -16,6 +16,7 @@ import 'package:watchtower/utils/extensions/others.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:path/path.dart' as p;
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 /// Bottom sheet dialog for long-press actions on manga images.
 ///
@@ -106,17 +107,17 @@ class _ImageActionsSheet extends ConsumerWidget {
                 children: [
                   _ActionButton(
                     label: context.l10n.set_as_cover,
-                    icon: Icons.image_outlined,
+                    icon: Broken.image,
                     onPressed: () => _setAsCover(context),
                   ),
                   _ActionButton(
                     label: context.l10n.share,
-                    icon: Icons.share_outlined,
+                    icon: Broken.share,
                     onPressed: () => _shareImage(context),
                   ),
                   _ActionButton(
                     label: context.l10n.save,
-                    icon: Icons.save_outlined,
+                    icon: Broken.save_2,
                     onPressed: () => _saveImage(context, ref),
                   ),
                 ],

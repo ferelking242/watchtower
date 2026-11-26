@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 /// Full-screen barrier shown while the reader screen is locked.
 ///
@@ -43,7 +44,7 @@ class ReaderLockOverlay extends StatelessWidget {
                   onPressed: onUnlock,
                   tooltip: tooltip,
                   color: Colors.white,
-                  icon: const Icon(Icons.lock_rounded),
+                  icon: const Icon(Broken.lock),
                 ),
               ),
             ),
