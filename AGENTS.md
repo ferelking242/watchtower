@@ -1051,10 +1051,16 @@ must not leak into watch code paths or logs:
   `focusNode` fourni par l'appelant. Le lecteur crée `_keyboardFocusNode` dans
   son `State` et le libère dans `dispose`. Ne jamais revenir à un
   `FocusNode()` construit dans `build` : chaque frame en créait un nouveau,
-  ce qui fuyait un nœud par rebuild et faisait perdre le focus clavier
-  (flèches, F11, touches volume ne répondaient plus après un re-render).
-- Le handler ne réagit qu'aux `KeyDownEvent` (jamais aux `KeyUpEvent`), pour
-  qu'une touche maintenue ne déclenche pas deux sauts de page. Couvert par
+  ce qui fuyait un nœud par rebuild et faisait perdre les raccourcis clavier
+  (flèches, F11).
+- Les touches de volume ne dépendent pas du focus : elles sont réclamées par
+  `HardwareKeyboard.addHandler`, puis le chemin `Focus.onKeyEvent` les ignore
+  pour éviter un double changement de page. Le handler global utilise le même
+  callback stocké pour `addHandler` et `removeHandler`, et le retire dans
+  `dispose`. Ne pas réintroduire le traitement des touches volume dans le
+  chemin Focus.
+- Seul `KeyDownEvent` déclenche la navigation; `KeyUpEvent` est aussi réclamé
+  pour empêcher Android de reprendre la touche. Couvert par
   `test/reader_keyboard_test.dart`.
 
 ## Navigation chapitres dans le lecteur (ne pas régresser)
@@ -1087,9 +1093,18 @@ must not leak into watch code paths or logs:
   `reader_view.dart` listens to `volumeButtonNavigationStateProvider` in `build`
   for exactly that reason; do not move the subscription back to `initState` only.
 - The native host confirms the event sink is installed before reporting volume
-  navigation ready. Android only consumes a hardware key while that sink is
-  live; never swallow a key with no Dart listener. The reader invalidates
-  pending enable handshakes when the setting is turned off or the screen exits.
+  navigation ready, but Android must consume the key as soon as the reader has
+  requested navigation, even if that sink is not attached yet. Queue the first
+  key-down briefly and deliver it when the sink attaches; clear queued keys
+  when navigation is disabled. Never let a requested volume key fall through to
+  the operating system just because Dart is still subscribing.
+- Keep the global `HardwareKeyboard` path as a fallback for keys Flutter
+  receives, and keep volume keys out of the Focus handler to avoid double turns.
+  Android and Dart log state transitions under `ReaderVolumeKeys` so a device
+  report can distinguish an unrequested key, a queued key, a delivered event,
+  and a page-navigation rejection.
+- The reader invalidates pending enable handshakes when the setting is turned
+  off or the screen exits.
 - Continuous navigation does not depend on a resolved page index; only paged
   readers require one. Keep the volume-button path usable while the Webtoon
   list is still resolving its first visible item.

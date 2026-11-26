@@ -186,6 +186,55 @@ void main() {
     expect(calls.volumeDown, 1);
   });
 
+  testWidgets('the global handler still claims volume keys after focus moves', (
+    tester,
+  ) async {
+    final calls = _Calls();
+    final handler = calls.handler();
+    final readerNode = FocusNode(debugLabel: 'test-reader-volume-focus');
+    final otherNode = FocusNode(debugLabel: 'test-other-volume-focus');
+    addTearDown(readerNode.dispose);
+    addTearDown(otherNode.dispose);
+
+    bool claim(KeyEvent event) => handler.claimVolumeKeyEvent(event);
+    HardwareKeyboard.instance.addHandler(claim);
+    addTearDown(() => HardwareKeyboard.instance.removeHandler(claim));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              handler.wrapWithKeyboardListener(
+                focusNode: readerNode,
+                child: const SizedBox(width: 1, height: 1),
+              ),
+              Expanded(
+                child: Focus(
+                  focusNode: otherNode,
+                  child: const Center(child: Text('another control')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    otherNode.requestFocus();
+    await tester.pump();
+    expect(otherNode.hasFocus, isTrue);
+    expect(readerNode.hasFocus, isFalse);
+
+    expect(
+      await tester.sendKeyEvent(LogicalKeyboardKey.audioVolumeUp),
+      isTrue,
+    );
+    await tester.pump();
+    expect(calls.volumeUp, 1);
+  });
+
   testWidgets('the focus path does not turn the page a second time', (
     tester,
   ) async {

@@ -260,6 +260,9 @@ class _MangaChapterPageGalleryState
       HardwareKeyboard.instance.removeHandler(_volumeKeyCallback);
       _keyboardHandlerRegistered = false;
       _keyboardHandler = null;
+      debugPrint(
+        '[ReaderVolumeKeys] event=flutter_handler_removed reason=reader_disposed',
+      );
     }
     clearGestureDetailsCache();
     if (_isNavigatingToChapter) {
@@ -515,6 +518,9 @@ class _MangaChapterPageGalleryState
       if (_keyboardHandlerRegistered) {
         HardwareKeyboard.instance.removeHandler(_volumeKeyCallback);
         _keyboardHandlerRegistered = false;
+        debugPrint(
+          '[ReaderVolumeKeys] event=flutter_handler_removed reason=preference_disabled',
+        );
       }
       _keyboardHandler = null;
       return;
@@ -527,6 +533,9 @@ class _MangaChapterPageGalleryState
     if (!_keyboardHandlerRegistered) {
       HardwareKeyboard.instance.addHandler(_volumeKeyCallback);
       _keyboardHandlerRegistered = true;
+      debugPrint(
+        '[ReaderVolumeKeys] event=flutter_handler_registered enabled=true',
+      );
     }
   }
 
@@ -539,8 +548,15 @@ class _MangaChapterPageGalleryState
   bool _claimVolumeKey(KeyEvent event) {
     final handler = _keyboardHandler;
     if (handler == null) return false;
-    if (_isLocked) return handler.claimsVolumeKey(event);
-    return handler.claimVolumeKeyEvent(event);
+    final claimed = _isLocked
+        ? handler.claimsVolumeKey(event)
+        : handler.claimVolumeKeyEvent(event);
+    if (claimed && event is KeyDownEvent) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=flutter_key_claimed key=${event.logicalKey.keyLabel} locked=$_isLocked',
+      );
+    }
+    return claimed;
   }
 
   /// Wires hardware volume keys to page navigation.
@@ -555,18 +571,39 @@ class _MangaChapterPageGalleryState
     // permanently without key navigation; the safe read repairs instead.
     final volumeNavEnabled =
         readSettingsSafely(isar: isar).volumeButtonNavigation ?? false;
-    if (!volumeNavEnabled) return;
+    if (!volumeNavEnabled) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=enable_skipped preference=false',
+      );
+      return;
+    }
 
-    final token = await VolumeKeyChannel.enable(_handleVolumeKey);
-    if (token == null) return;
+    final token = await VolumeKeyChannel.enable(
+      (direction) => _handleVolumeKey(
+        direction,
+        source: 'android_event_channel',
+      ),
+    );
+    if (token == null) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=native_bridge_unavailable preference=true',
+      );
+      return;
+    }
     if (!mounted ||
         generation != _volumeEnableGeneration ||
         !ref.read(volumeButtonNavigationStateProvider)) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=native_bridge_disabled reason=reader_replaced_or_preference_off',
+      );
       await VolumeKeyChannel.disable(token);
       return;
     }
     _volumeToken = token;
     _volumeListenerActive = true;
+    debugPrint(
+      '[ReaderVolumeKeys] event=native_bridge_ready generation=$generation',
+    );
   }
 
   /// Turns a volume-key direction into a page step.
@@ -576,24 +613,47 @@ class _MangaChapterPageGalleryState
   /// [ReaderKeyboardHandler] (which only fires when the host did not swallow
   /// it). Exactly one of them runs per press, so this must not depend on which
   /// one did.
-  void _handleVolumeKey(int direction) {
-    if (!mounted || _isLocked) return;
+  void _handleVolumeKey(int direction, {required String source}) {
+    final directionLabel = direction > 0 ? 'up' : 'down';
+    if (!mounted) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=navigation_ignored source=$source direction=$directionLabel reason=reader_unmounted',
+      );
+      return;
+    }
+    if (_isLocked) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=navigation_ignored source=$source direction=$directionLabel reason=reader_locked',
+      );
+      return;
+    }
 
     final invert =
         readSettingsSafely(isar: isar).invertVolumeButtonNavigation ?? false;
     final readerMode = ref.read(_currentReaderMode);
-    if (readerMode == null) return;
+    if (readerMode == null) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=navigation_ignored source=$source direction=$directionLabel reason=reader_mode_unresolved',
+      );
+      return;
+    }
     final index = _currentIndex;
     if (!PageNavigationService.canNavigateWithVolumeKey(
       readerMode: readerMode,
       currentIndex: index,
     )) {
+      debugPrint(
+        '[ReaderVolumeKeys] event=navigation_ignored source=$source direction=$directionLabel reason=page_not_ready mode=$readerMode index=$index',
+      );
       return;
     }
 
     final goNext = VolumeKeyChannel.volumeKeyGoesToNextPage(
       direction: direction,
       invert: invert,
+    );
+    debugPrint(
+      '[ReaderVolumeKeys] event=navigation source=$source direction=$directionLabel mode=$readerMode index=$index goNext=$goNext',
     );
 
     if (PageNavigationService.isContinuousMode(readerMode)) {
@@ -771,8 +831,12 @@ class _MangaChapterPageGalleryState
     // moving the system volume.
     final volumeNavEnabled = ref.watch(volumeButtonNavigationStateProvider);
     final handler = ReaderKeyboardHandler(
-      onVolumeUp: volumeNavEnabled ? () => _handleVolumeKey(1) : null,
-      onVolumeDown: volumeNavEnabled ? () => _handleVolumeKey(-1) : null,
+      onVolumeUp: volumeNavEnabled
+          ? () => _handleVolumeKey(1, source: 'flutter_hardware_keyboard')
+          : null,
+      onVolumeDown: volumeNavEnabled
+          ? () => _handleVolumeKey(-1, source: 'flutter_hardware_keyboard')
+          : null,
       onPreviousPage: () {
         if (_isLocked) return;
         navigationService.previousPage(

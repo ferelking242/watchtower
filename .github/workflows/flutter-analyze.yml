@@ -158,6 +158,8 @@ jobs:
       - name: Run manga reader navigation and layout tests
         run: |
           flutter test \
+            test/reader_keyboard_test.dart \
+            test/volume_key_navigation_test.dart \
             test/reader_page_scroll_test.dart \
             test/reader_webtoon_layout_test.dart \
             test/reader_webtoon_width_test.dart

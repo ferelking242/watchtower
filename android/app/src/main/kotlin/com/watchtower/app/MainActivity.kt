@@ -10,6 +10,7 @@ package com.watchtower.app
   import android.net.Uri
   import android.os.Build
   import android.os.Environment
+  import android.util.Log
   import android.view.KeyEvent
   import androidx.annotation.NonNull
   import androidx.core.content.FileProvider
@@ -23,11 +24,14 @@ package com.watchtower.app
   import libmtorrentserver.Libmtorrentserver
   import rikka.shizuku.Shizuku
   import java.io.File
+  import java.util.ArrayDeque
 
   class MainActivity : FlutterFragmentActivity() {
 
       companion object {
           private const val SHIZUKU_CODE    = 1042
+          private const val VOLUME_KEY_TAG = "ReaderVolumeKeys"
+          private const val MAX_PENDING_VOLUME_KEYS = 8
       }
 
       // ── Shizuku permission callback ────────────────────────────────────────
@@ -41,12 +45,30 @@ package com.watchtower.app
   // over an EventChannel, so the system volume never moves.
   // Two separate facts, deliberately. `volumeNavRequested` is the Dart reader
   // saying "I want the volume keys"; `volumeNavSink` is whether the event
-  // channel is actually listening yet. Folding them into one flag made the
-  // handshake fail whenever the sink arrived a moment late (cold start, slow
-  // device): `setEnabled` reported "not ready", Dart gave up, and the keys fell
-  // through to the system for the whole session — the volume just went up.
+  // channel is actually listening yet. If the reader requested the keys before
+  // the sink is ready, consume and queue them; never let startup timing change
+  // the system volume.
   private var volumeNavRequested = false
   private var volumeNavSink: io.flutter.plugin.common.EventChannel.EventSink? = null
+  private val pendingVolumeDirections = ArrayDeque<Int>()
+
+  private fun deliverPendingVolumeDirections() {
+      val sink = volumeNavSink ?: return
+      if (!volumeNavRequested) return
+
+      while (pendingVolumeDirections.isNotEmpty()) {
+          val direction = pendingVolumeDirections.removeFirst()
+          sink.success(direction)
+          Log.d(
+              VOLUME_KEY_TAG,
+              "event=queued_delivered direction=${volumeDirectionLabel(direction)} pending=${pendingVolumeDirections.size}"
+          )
+      }
+  }
+
+  private fun volumeDirectionLabel(direction: Int): String =
+      if (direction > 0) "up" else "down"
+
       private val shizukuPermListener =
           Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
               if (requestCode == SHIZUKU_CODE) {
@@ -511,6 +533,11 @@ package com.watchtower.app
           ).setStreamHandler(object : io.flutter.plugin.common.EventChannel.StreamHandler {
               override fun onListen(arguments: Any?, events: io.flutter.plugin.common.EventChannel.EventSink?) {
                   volumeNavSink = events
+                  Log.i(
+                      VOLUME_KEY_TAG,
+                      "event=sink_attached requested=$volumeNavRequested ready=${events != null} pending=${pendingVolumeDirections.size}"
+                  )
+                  deliverPendingVolumeDirections()
               }
               override fun onCancel(arguments: Any?) {
                   // The listener is gone, so there is nowhere to deliver a
@@ -518,15 +545,18 @@ package com.watchtower.app
                   // usually only re-subscribing, and dropping the request here
                   // is what made navigation die after a chapter change.
                   volumeNavSink = null
+                  Log.i(
+                      VOLUME_KEY_TAG,
+                      "event=sink_detached requested=$volumeNavRequested pending=${pendingVolumeDirections.size}"
+                  )
               }
           })
 
           // The method channel must NOT reuse the event channel's name: both
           // register a message handler under the same key on the Android
           // binary messenger, so the second registration (this one) would
-          // silently replace the event channel's handler. The event sink then
-          // never receives `onListen`, `dispatchKeyEvent` swallows the volume
-          // key into a null sink, and hardware page navigation does nothing.
+          // silently replace the event channel's handler. The event sink would
+          // never receive `onListen`, so queued keys could not reach the reader.
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
               "com.watchtower.app.volume_keys_methods"
@@ -535,10 +565,16 @@ package com.watchtower.app
                   "setEnabled" -> {
                       val requested = call.argument<Boolean>("enabled") ?: false
                       volumeNavRequested = requested
+                      if (!requested) pendingVolumeDirections.clear()
+                      Log.i(
+                          VOLUME_KEY_TAG,
+                          "event=request_changed requested=$requested sinkReady=${volumeNavSink != null} pending=${pendingVolumeDirections.size}"
+                      )
                       // The request is durable and the sink is checked again on
                       // every key, so a late `onListen` now heals itself instead
                       // of leaving the reader without navigation. The returned
                       // value is only a readiness hint for Dart's retry loop.
+                      deliverPendingVolumeDirections()
                       result.success(!requested || volumeNavSink != null)
                   }
                   else -> result.notImplemented()
@@ -582,20 +618,46 @@ package com.watchtower.app
       }
 
       override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-          val sink = volumeNavSink
-          if (volumeNavRequested && sink != null) {
-              val dir = when (event.keyCode) {
-                  KeyEvent.KEYCODE_VOLUME_UP   -> 1
-                  KeyEvent.KEYCODE_VOLUME_DOWN -> -1
-                  else -> 0
-              }
-              if (dir != 0) {
-                  if (event.action == KeyEvent.ACTION_DOWN &&
-                      event.repeatCount == 0) {
-                      sink.success(dir)
+          val direction = when (event.keyCode) {
+              KeyEvent.KEYCODE_VOLUME_UP -> 1
+              KeyEvent.KEYCODE_VOLUME_DOWN -> -1
+              else -> 0
+          }
+          if (direction != 0) {
+              val isInitialDown =
+                  event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0
+              if (volumeNavRequested) {
+                  if (isInitialDown) {
+                      val sink = volumeNavSink
+                      if (sink != null) {
+                          sink.success(direction)
+                          Log.i(
+                              VOLUME_KEY_TAG,
+                              "event=key_forwarded direction=${volumeDirectionLabel(direction)} sinkReady=true action=down"
+                          )
+                      } else {
+                          // Claim the key immediately so Android cannot change
+                          // system volume while the Dart EventChannel attaches.
+                          // Keep only a short backlog for the reader startup gap.
+                          if (pendingVolumeDirections.size >= MAX_PENDING_VOLUME_KEYS) {
+                              pendingVolumeDirections.removeFirst()
+                          }
+                          pendingVolumeDirections.addLast(direction)
+                          Log.w(
+                              VOLUME_KEY_TAG,
+                              "event=key_queued direction=${volumeDirectionLabel(direction)} sinkReady=false pending=${pendingVolumeDirections.size}"
+                          )
+                      }
                   }
-                  // Swallow both down and up so the system volume UI stays hidden.
+                  // Swallow down, repeats, and up events as soon as the reader
+                  // has requested navigation, even if Dart is not listening yet.
                   return true
+              }
+              if (isInitialDown) {
+                  Log.d(
+                      VOLUME_KEY_TAG,
+                      "event=key_passed_to_system direction=${volumeDirectionLabel(direction)} requested=false sinkReady=${volumeNavSink != null}"
+                  )
               }
           }
           return super.dispatchKeyEvent(event)
