@@ -14,6 +14,12 @@ T _read<T>(String key, T fallback) {
 
 void _write(String key, Object? value) => _box?.put(key, value);
 
+/// Reads a preference from the box, for providers declared in another file.
+bool readerPrefsBool(String key, bool fallback) => _read(key, fallback);
+
+/// Writes a preference to the box, for providers declared in another file.
+void readerPrefsPut(String key, Object? value) => _write(key, value);
+
 /// Generic bool preference backed by the box.
 class _BoolPref extends Notifier<bool> {
   _BoolPref(this._key, this._default);
@@ -133,6 +139,12 @@ final continuousMenuHideSensitivityProvider =
 /// Vertical chapter navigator placement: none | left | right | both.
 final verticalChapterNavigatorProvider =
     _stringPref('vertical_chapter_navigator', 'none');
+
+/// Hardware volume keys turn pages in the reader.
+const kVolumeButtonNavigationKey = 'volume_button_navigation';
+
+/// Swaps the volume-key page direction (up = next page instead of previous).
+const kInvertVolumeButtonNavigationKey = 'invert_volume_button_navigation';
 
 // ── Actions ─────────────────────────────────────────────────────────────────
 

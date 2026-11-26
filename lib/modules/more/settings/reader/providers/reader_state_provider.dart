@@ -1,6 +1,7 @@
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:watchtower/modules/more/settings/reader/providers/reader_prefs_provider.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'reader_state_provider.g.dart';
 
@@ -812,23 +813,16 @@ class TtsVoiceState extends _$TtsVoiceState {
 
 @riverpod
 class VolumeButtonNavigationState extends _$VolumeButtonNavigationState {
+  // Persisted in the `reader_prefs` Hive box rather than in `Settings`: the
+  // Isar schema is frozen (see IsarOpenGuard — adding a property changes the
+  // fingerprint and quarantines every existing library), so a setting stored
+  // there would never be written back.
   @override
-  bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings())
-            .volumeButtonNavigation ??
-        false;
-  }
+  bool build() => readerPrefsBool(kVolumeButtonNavigationKey, false);
 
   void set(bool value) {
-    final settings = isar.settings.getSync(kSettingsId);
     state = value;
-    isar.writeTxnSync(
-      () => isar.settings.putSync(
-        settings!
-          ..volumeButtonNavigation = value
-          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-      ),
-    );
+    readerPrefsPut(kVolumeButtonNavigationKey, value);
   }
 }
 
@@ -836,21 +830,10 @@ class VolumeButtonNavigationState extends _$VolumeButtonNavigationState {
 class InvertVolumeButtonNavigationState
     extends _$InvertVolumeButtonNavigationState {
   @override
-  bool build() {
-    return (isar.settings.getSync(kSettingsId) ?? Settings())
-            .invertVolumeButtonNavigation ??
-        false;
-  }
+  bool build() => readerPrefsBool(kInvertVolumeButtonNavigationKey, false);
 
   void set(bool value) {
-    final settings = isar.settings.getSync(kSettingsId);
     state = value;
-    isar.writeTxnSync(
-      () => isar.settings.putSync(
-        settings!
-          ..invertVolumeButtonNavigation = value
-          ..updatedAt = DateTime.now().millisecondsSinceEpoch,
-      ),
-    );
+    readerPrefsPut(kInvertVolumeButtonNavigationKey, value);
   }
 }

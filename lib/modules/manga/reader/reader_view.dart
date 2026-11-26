@@ -33,7 +33,6 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
-import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/reader/image_view_paged.dart';
@@ -567,10 +566,7 @@ class _MangaChapterPageGalleryState
   Future<void> _initVolumeButtonNavigation() async {
     if (_volumeListenerActive) return;
     final generation = ++_volumeEnableGeneration;
-    // A raw `getSync` throws on a corrupt record and would leave the reader
-    // permanently without key navigation; the safe read repairs instead.
-    final volumeNavEnabled =
-        readSettingsSafely(isar: isar).volumeButtonNavigation ?? false;
+    final volumeNavEnabled = ref.read(volumeButtonNavigationStateProvider);
     if (!volumeNavEnabled) {
       debugPrint(
         '[ReaderVolumeKeys] event=enable_skipped preference=false',
@@ -628,8 +624,7 @@ class _MangaChapterPageGalleryState
       return;
     }
 
-    final invert =
-        readSettingsSafely(isar: isar).invertVolumeButtonNavigation ?? false;
+    final invert = ref.read(invertVolumeButtonNavigationStateProvider);
     final readerMode = ref.read(_currentReaderMode);
     if (readerMode == null) {
       debugPrint(
