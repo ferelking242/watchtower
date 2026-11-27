@@ -1,11 +1,12 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:developer';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
-import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
+import 'package:watchtower/modules/more/about/update_page.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/app_updater/app_update_service.dart'
     if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
@@ -25,97 +26,45 @@ Future<void> checkForUpdate(
   BuildContext? context,
   bool? manualUpdate,
 }) async {
-  manualUpdate = manualUpdate ?? false;
+  final manual = manualUpdate ?? false;
   final checkForUpdates = ref.read(checkForAppUpdatesProvider);
-  if (!checkForUpdates && !manualUpdate) return;
+  if (!checkForUpdates && !manual) return;
 
-  if (manualUpdate) {
-    final l10n = l10nLocalizations(context!);
-    botToast(l10n!.searching_for_updates);
+  if (manual && context != null && context.mounted) {
+    final l10n = l10nLocalizations(context);
+    if (l10n != null) botToast(l10n.searching_for_updates);
   }
 
-  // Use github_release_apk_updater to fetch latest release
-  final updater = GithubReleaseApkUpdater();
-  final apiService = GithubApiService();
+  // Single update pipeline: `app_updater` checks the CI feed, the artifacts
+  // and the releases, and the update page handles download and install.
+  final info = await AppUpdateService.instance.checkNow();
+  pendingUpdateBanner = info.updateAvailable ? info.latestVersion : null;
+  pendingUpdateData = info.updateAvailable
+      ? (
+          info.latestVersion ?? '',
+          info.releaseNotes ?? '',
+          info.releaseUrl ?? '',
+          const <dynamic>[],
+        )
+      : null;
 
-  try {
-    final supportedAbis = await updater.getSupportedAbis();
-    final release = await apiService.getLatestGithubAPKRelease(
-      ownerGithub: _kOwner,
-      repositoryGithub: _kRepo,
-      apkKeyName: '', // no filter — accept any APK asset
-      supportedAbis: supportedAbis,
+  if (!manual) return;
+  if (context == null || !context.mounted) return;
+  if (info.updateAvailable) {
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) => UpdatePage(initial: info),
+      ),
     );
-
-    if (release == null) {
-      // No releases found or error → treat as up to date
-      if (manualUpdate && context != null && context.mounted) {
-        final l10n = l10nLocalizations(context);
-        botToast(l10n?.no_new_updates_available ?? 'Pas de mise à jour disponible');
-      }
-      return;
-    }
-
-    final currentVersion = await updater.getCurrentAppVersion();
-    final isNewer = VersionComparator().isNewerVersion(
-      release.version,
-      currentVersion,
-    );
-
-    if (!isNewer) {
-      // Already up to date
-      pendingUpdateBanner = null;
-      if (manualUpdate && context != null && context.mounted) {
-        final l10n = l10nLocalizations(context);
-        botToast(l10n?.no_new_updates_available ?? 'Vous avez la dernière version');
-      }
-      return;
-    }
-
-    // New update available — check if user skipped this version
-    if (!manualUpdate && _skippedVersion != null && _skippedVersion == release.version) {
-      return;
-    }
-
-    // Store pending update data for the banner
-    pendingUpdateBanner = release.version;
-    pendingUpdateData = (
-      release.version,
-      release.releaseNote,
-      'https://github.com/ferelking242/watchtower/releases/tag/v${release.version}',
-      <String>[release.apkUrl], // wrap single APK URL in list for compatibility
-    );
-
-    if (manualUpdate && context != null && context.mounted) {
-      final l10n = l10nLocalizations(context);
-      botToast(l10n?.new_update_available ?? 'Mise à jour disponible');
-      await Future.delayed(const Duration(seconds: 1));
-    }
-
-    // The background flow downloads and notifies on its own; opening the
-    // screen as well would download the same build twice.
-    if (!manualUpdate &&
-        await AppUpdateService.instance.isAutoUpdateEnabled()) {
-      return;
-    }
-
-    if (context != null && context.mounted) {
-      Navigator.of(context, rootNavigator: true).push(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => DownloadFileScreen(updateAvailable: pendingUpdateData!),
-        ),
-      );
-    }
-  } catch (e, st) {
-    if (kDebugMode) {
-      log('checkForUpdate failed: $e\n$st');
-    }
-    if (manualUpdate && context != null && context.mounted) {
-      final l10n = l10nLocalizations(context);
-      botToast(l10n?.no_new_updates_available ?? 'Erreur lors de la vérification');
-    }
+    return;
   }
+  final l10n = l10nLocalizations(context);
+  botToast(
+    info.phase == 'upToDate'
+        ? (l10n?.no_new_updates_available ?? 'Vous avez la dernière version')
+        : 'Vérification impossible',
+  );
 }
 
 @riverpod

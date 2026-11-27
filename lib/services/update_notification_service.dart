@@ -87,12 +87,24 @@ const String _kDownloadChannelName = 'Téléchargements';
 const String _kActionDownload = 'action_download';
 const String _kActionWhatsNew = 'action_whats_new';
 const String _kActionInstall = 'action_install';
+const String _kActionUpdateDownload = 'action_update_download';
 const String _kActionInstallExtensions = 'action_install_extensions';
 const String _kActionPlay = 'action_play';
 const String _kActionMediaPause = 'action_media_pause';
 const String _kActionMediaResume = 'action_media_resume';
 const String _kActionMediaCancel = 'action_media_cancel';
 const String _kActionMediaRetry = 'action_media_retry';
+
+/// Human size for the update notifications (`12,4 Mo`, `1,2 Go`).
+String _formatUpdateSize(int bytes) {
+  if (bytes <= 0) return '';
+  final mo = bytes / (1024 * 1024);
+  if (mo < 1) return '${(bytes / 1024).toStringAsFixed(0)} Ko';
+  if (mo < 1024) {
+    return '${mo.toStringAsFixed(mo < 10 ? 1 : 0).replaceAll('.', ',')} Mo';
+  }
+  return '${(mo / 1024).toStringAsFixed(2).replaceAll('.', ',')} Go';
+}
 
 /// Retries every failed chapter of a series card at once.
 const String _kActionMediaRetryAll = 'action_media_retry_all';
@@ -908,6 +920,8 @@ class WatchtowerNotificationService {
     switch (response.actionId) {
       case _kActionInstall:
         await _installPending();
+      case _kActionUpdateDownload:
+        await _downloadAppUpdate();
       case _kActionWhatsNew:
         final url = _pendingReleaseUrl;
         if (url != null) {
@@ -980,15 +994,40 @@ class WatchtowerNotificationService {
     }
   }
 
+  /// Installs the APK downloaded by the update flow.
+  ///
+  /// Goes through [AppUpdateService] so the silent installer is used when it is
+  /// available, and so a build downloaded before the app restarted is still
+  /// found (the path is persisted by `app_updater`).
   Future<void> _installPending() async {
-    final path = _pendingInstallPath;
-    if (path == null) return;
     try {
-      const channel = MethodChannel('com.watchtower.app.apk_install');
-      await channel.invokeMethod('installApk', {'filePath': path});
+      final started = await AppUpdateService.instance.installNow();
+      if (!started) {
+        final path = _pendingInstallPath;
+        if (path == null) return;
+        const channel = MethodChannel('com.watchtower.app.apk_install');
+        await channel.invokeMethod('installApk', {'filePath': path});
+      }
     } catch (e) {
       AppLogger.log(
         '_installPending error: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  /// Starts the download from the "Télécharger" notification action.
+  Future<void> _downloadAppUpdate() async {
+    try {
+      final info = AppUpdateService.instance.current;
+      if (!info.updateAvailable && info.filePath == null) {
+        await AppUpdateService.instance.checkNow();
+      }
+      await AppUpdateService.instance.downloadNow();
+    } catch (e) {
+      AppLogger.log(
+        '_downloadAppUpdate error: $e',
         logLevel: LogLevel.warning,
         tag: LogTag.network,
       );
@@ -1053,6 +1092,74 @@ class WatchtowerNotificationService {
       '$pct %',
       NotificationDetails(android: details),
     );
+  }
+
+  /// "Update available" notification for Watchtower itself.
+  ///
+  /// Nothing is downloaded here: the user either taps [Télécharger] (which
+  /// starts the in-app download) or opens the update page for the changelog.
+  Future<void> showAppUpdateAvailable({
+    required String version,
+    int? sizeBytes,
+    String? releaseUrl,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    _pendingReleaseUrl = releaseUrl;
+
+    final size = sizeBytes != null && sizeBytes > 0
+        ? ' · ${_formatUpdateSize(sizeBytes)}'
+        : '';
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        _kUpdateChannelId,
+        _kUpdateChannelName,
+        channelDescription: 'Notifications de mise à jour de Watchtower',
+        importance: Importance.high,
+        priority: Priority.high,
+        ticker: 'Mise à jour disponible',
+        styleInformation: BigTextStyleInformation(
+          'Watchtower $version est disponible$size. '
+          'Le téléchargement démarre seulement quand vous le demandez.',
+          contentTitle: 'Mise à jour disponible',
+          summaryText: 'v$version',
+        ),
+        actions: const [
+          AndroidNotificationAction(
+            _kActionUpdateDownload,
+            'Télécharger',
+            showsUserInterface: true,
+            cancelNotification: false,
+          ),
+          AndroidNotificationAction(
+            _kActionWhatsNew,
+            'Quoi de neuf',
+            showsUserInterface: true,
+            cancelNotification: false,
+          ),
+        ],
+      );
+      await _plugin.show(
+        _kUpdateNotifId,
+        'Mise à jour disponible : v$version',
+        'Appuyez pour voir les nouveautés$size',
+        NotificationDetails(
+          android: androidDetails,
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        payload: jsonEncode(const {'type': 'app_update'}),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showAppUpdateAvailable failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
   }
 
   /// Extension update notification.

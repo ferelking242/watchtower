@@ -32,9 +32,11 @@ class AppUpdateService {
 
   Future<bool> installNow() async => false;
 
-  Future<void> checkAndDownload() async {}
+  Future<void> checkAndAnnounce() async {}
 
   Future<bool> installPending() async => false;
+
+  Future<void> clearPending() async {}
 
   Future<List<UpdateHistoryEntry>> history({int limit = 10}) async => const [];
 

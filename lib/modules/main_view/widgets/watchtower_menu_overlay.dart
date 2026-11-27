@@ -14,7 +14,10 @@ import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
         clearInstallReady;
 
 import 'package:watchtower/modules/more/about/providers/download_file_screen.dart'
-    show DownloadFileScreen, ApkInstaller;
+    show ApkInstaller;
+import 'package:watchtower/modules/more/about/update_page.dart';
+import 'package:watchtower/services/app_updater/app_update_service.dart'
+    if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart'
     show navEditModeProvider;
@@ -323,15 +326,18 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
                   cs: cs,
                   onTap: () async {
                     await _close();
-                    if (context.mounted) {
-                      Navigator.of(context, rootNavigator: true).push(
-                        MaterialPageRoute(
-                          fullscreenDialog: true,
-                          builder: (_) =>
-                              DownloadFileScreen(updateAvailable: updateData),
-                        ),
-                      );
+                    if (!context.mounted) return;
+                    var info = AppUpdateService.instance.current;
+                    if (info.latestVersion == null) {
+                      info = await AppUpdateService.instance.checkNow();
                     }
+                    if (!context.mounted) return;
+                    Navigator.of(context, rootNavigator: true).push(
+                      MaterialPageRoute<void>(
+                        fullscreenDialog: true,
+                        builder: (_) => UpdatePage(initial: info),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 10),
@@ -932,7 +938,11 @@ class _UpdateBannerState extends State<_UpdateBanner>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Broken.document_download, size: 15, color: Colors.white),
+              const Icon(
+                Broken.document_download,
+                size: 15,
+                color: Colors.white,
+              ),
               const SizedBox(width: 8),
               Text(
                 'v${widget.version} disponible',

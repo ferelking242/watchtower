@@ -78,10 +78,10 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: e04a9869095ad89e74888f141d01df3b02ac06a8
+      resolved-ref: "71f40b278f88227783ad2c2fcd457678fefdd661"
       url: "https://github.com/ferelking242/app_updater.git"
     source: git
-    version: "3.1.0"
+    version: "3.2.0"
   archive:
     dependency: "direct main"
     description:

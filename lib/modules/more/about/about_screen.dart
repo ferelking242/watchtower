@@ -90,9 +90,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     try {
       await AppUpdateService.instance.setAutoUpdateEnabled(value);
       if (value) {
-        // Fetch right away so the install notification arrives without
-        // waiting for the next launch or the periodic check.
-        unawaited(AppUpdateService.instance.checkAndDownload());
+        // Only announces the build: the download waits for an explicit tap on
+        // "Télécharger" (in the app or on the notification).
+        unawaited(AppUpdateService.instance.checkAndAnnounce());
       }
     } finally {
       if (mounted) setState(() => _autoUpdateBusy = false);

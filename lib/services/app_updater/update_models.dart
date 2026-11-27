@@ -15,6 +15,7 @@ class UpdateInfoView {
     this.phase = 'idle',
     this.progress,
     this.error,
+    this.filePath,
   });
 
   final String currentVersion;
@@ -35,6 +36,10 @@ class UpdateInfoView {
   final double? progress;
   final Object? error;
 
+  /// APK already downloaded and waiting to be installed, when the package
+  /// remembered one.
+  final String? filePath;
+
   bool get isDownloading => phase == 'downloading' || phase == 'checking';
   bool get isReady => phase == 'readyToInstall' || phase == 'installed';
 
@@ -49,6 +54,7 @@ class UpdateInfoView {
     String? phase,
     double? progress,
     Object? error,
+    String? filePath,
   }) {
     return UpdateInfoView(
       currentVersion: currentVersion ?? this.currentVersion,
@@ -61,6 +67,7 @@ class UpdateInfoView {
       phase: phase ?? this.phase,
       progress: progress ?? this.progress,
       error: error ?? this.error,
+      filePath: filePath ?? this.filePath,
     );
   }
 }

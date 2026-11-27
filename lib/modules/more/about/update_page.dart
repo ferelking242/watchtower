@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -80,8 +81,14 @@ class _UpdatePageState extends State<UpdatePage>
     try {
       final started = await AppUpdateService.instance.installNow();
       if (!mounted) return;
-      if (!started) {
-        botToast(_isFrench ? 'Installation impossible' : 'Installation failed');
+      if (started) {
+        botToast(_isFrench ? 'Installation lancée' : 'Installation started');
+      } else {
+        botToast(
+          _isFrench
+              ? 'Autorisez « Installer des applications inconnues » pour Watchtower'
+              : 'Allow "Install unknown apps" for Watchtower',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -146,6 +153,7 @@ class _UpdatePageState extends State<UpdatePage>
                   children: [
                     _header(cs),
                     const SizedBox(height: 22),
+                    _downloadedFile(cs),
                     _notes(cs),
                     const SizedBox(height: 24),
                     _historySection(cs),
@@ -316,6 +324,91 @@ class _UpdatePageState extends State<UpdatePage>
     );
   }
 
+  /// Where the downloaded APK lives, so the user can find it with a file
+  /// manager instead of wondering where 55 MB went.
+  Widget _downloadedFile(ColorScheme cs) {
+    final path = _info.filePath;
+    if (path == null || !_info.isReady) return const SizedBox.shrink();
+    final name = path.split('/').last;
+    final folder = path.substring(0, path.length - name.length);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.download_done_rounded, size: 20, color: cs.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isFrench ? 'Fichier prêt' : 'File ready',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: cs.primary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: cs.onSurface.withValues(alpha: 0.75),
+                  ),
+                ),
+                Text(
+                  folder,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 10.5,
+                    color: cs.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: _isFrench ? 'Supprimer le fichier' : 'Delete the file',
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              size: 20,
+              color: cs.onSurface.withValues(alpha: 0.6),
+            ),
+            onPressed: _busy ? null : _discardDownload,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _discardDownload() async {
+    setState(() => _busy = true);
+    try {
+      final path = _info.filePath;
+      await AppUpdateService.instance.clearPending();
+      if (path != null) {
+        try {
+          await File(path).delete();
+        } catch (_) {
+          // Already gone: the marker is what matters.
+        }
+      }
+      await _recheck();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Widget _notes(ColorScheme cs) {
     final notes = cleanReleaseNotes(_info.releaseNotes ?? '');
     if (notes.isEmpty) {
@@ -419,6 +512,26 @@ class _UpdatePageState extends State<UpdatePage>
   }
 
   Widget _primaryAction(ColorScheme cs) {
+    if (_info.phase == 'installed') {
+      return _roundButton(
+        onPressed: null,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle_rounded, size: 19),
+            const SizedBox(width: 8),
+            Text(
+              _isFrench ? 'Installation lancée' : 'Installation started',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_info.isReady) {
       return _roundButton(
         onPressed: _busy ? null : _install,

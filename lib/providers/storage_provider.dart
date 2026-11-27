@@ -280,6 +280,26 @@ class StorageProvider {
     }
   }
 
+  /// Folder holding downloaded app updates (APKs waiting to be installed).
+  ///
+  /// Kept in the shared storage root when it is writable so the user can find
+  /// the file with a file manager, and in the app-scoped fallback otherwise.
+  Future<Directory> updateDirectory() async {
+    final base = await getDefaultDirectory();
+    final directory = Directory(
+      path.join(
+        base?.path ?? (await getApplicationDocumentsDirectory()).path,
+        'update',
+      ),
+    );
+    try {
+      await directory.create(recursive: true);
+    } catch (error) {
+      debugPrint('[StorageProvider] could not create update dir: $error');
+    }
+    return directory;
+  }
+
   Future<Directory?> getDefaultDirectory() async {
     Directory? directory;
     if (!kIsWeb && Platform.isAndroid) {

@@ -10,6 +10,7 @@ package com.watchtower.app
   import android.net.Uri
   import android.os.Build
   import android.os.Environment
+  import android.provider.Settings
   import android.util.Log
   import android.view.KeyEvent
   import androidx.annotation.NonNull
@@ -109,7 +110,14 @@ package com.watchtower.app
               flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
           ).setMethodCallHandler { call, result ->
               when (call.method) {
-                  "installApk" -> { installApkIntent(call.argument("filePath")); result.success(null) }
+                  "installApk" -> {
+                      val launched = installApkIntent(call.argument("filePath"))
+                      result.success(launched)
+                  }
+                  "canInstall" -> result.success(
+                      Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                          packageManager.canRequestPackageInstalls()
+                  )
                   else         -> result.notImplemented()
               }
           }
@@ -771,18 +779,54 @@ package com.watchtower.app
       }
 
       // ── Legacy APK install (opens dialog) ─────────────────────────────────
-      private fun installApkIntent(filePath: String?) {
-          if (filePath == null) return
-          val file   = File(filePath)
-          val intent = Intent(Intent.ACTION_VIEW).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-          val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-              intent.flags = intent.flags or Intent.FLAG_GRANT_READ_URI_PERMISSION
-              FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-          } else {
-              Uri.fromFile(file)
+      /**
+       * Hands an APK to the system installer.
+       *
+       * Returns true when the installer UI was launched. A FileProvider path
+       * that is not declared in `file_paths.xml` used to throw before the
+       * channel could answer, which is why "Installer" did nothing at all:
+       * the exception is caught here and reported to Dart instead.
+       */
+      private fun installApkIntent(filePath: String?): Boolean {
+          if (filePath == null) return false
+          val file = File(filePath)
+          if (!file.exists()) {
+              Log.w("WatchtowerInstaller", "APK missing: $filePath")
+              return false
           }
-          intent.setDataAndType(uri, "application/vnd.android.package-archive")
-          startActivity(intent)
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+              !packageManager.canRequestPackageInstalls()
+          ) {
+              // Without this grant the installer closes instantly, so send the
+              // user to the toggle instead of showing nothing.
+              try {
+                  startActivity(
+                      Intent(
+                          Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                          Uri.parse("package:$packageName")
+                      ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                  )
+              } catch (e: Exception) {
+                  Log.w("WatchtowerInstaller", "cannot open install settings", e)
+              }
+              return false
+          }
+          return try {
+              val intent = Intent(Intent.ACTION_VIEW).apply {
+                  flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+              }
+              val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                  FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+              } else {
+                  Uri.fromFile(file)
+              }
+              intent.setDataAndType(uri, "application/vnd.android.package-archive")
+              startActivity(intent)
+              true
+          } catch (e: Exception) {
+              Log.e("WatchtowerInstaller", "install intent failed for $filePath", e)
+              false
+          }
       }
 
       override fun onDestroy() {

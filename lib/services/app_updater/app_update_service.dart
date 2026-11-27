@@ -6,6 +6,7 @@ import 'package:app_updater/app_updater.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:watchtower/core/config/app_config.dart';
+import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/app_updater/update_models.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
@@ -22,10 +23,18 @@ class WatchtowerUpdateNotifier implements UpdateNotifier {
   WatchtowerNotificationService get _notifications =>
       WatchtowerNotificationService.instance;
 
-  /// The background flow always continues with a download, so announcing the
-  /// version separately would produce two competing notifications.
   @override
-  Future<void> showUpdateAvailable(UpdateState state) async {}
+  Future<void> showUpdateAvailable(UpdateState state) async {
+    final version = state.info?.latestVersion ?? state.candidate?.version;
+    if (version == null) return;
+    await _notifications.showAppUpdateAvailable(
+      version: version,
+      sizeBytes:
+          state.info?.updateSizeBytes ??
+          state.candidate?.artifactFor()?.sizeBytes,
+      releaseUrl: state.candidate?.releaseUrl,
+    );
+  }
 
   @override
   Future<void> showDownloadProgress(UpdateState state) async {
@@ -85,8 +94,18 @@ class WatchtowerUpdateInstaller implements UpdateInstaller {
           update.file.path,
         );
       }
-      await _channel.invokeMethod('installApk', {'filePath': update.file.path});
-      return true;
+      final launched = await _channel.invokeMethod<bool>('installApk', {
+        'filePath': update.file.path,
+      });
+      if (launched != true) {
+        AppLogger.log(
+          'app_updater: the installer did not launch for ${update.file.path} '
+          '(missing file or "install unknown apps" not granted)',
+          logLevel: LogLevel.warning,
+          tag: LogTag.network,
+        );
+      }
+      return launched ?? false;
     } catch (e) {
       AppLogger.log(
         'app_updater install failed: $e',
@@ -158,10 +177,13 @@ class AppUpdateService {
       notifier: const WatchtowerUpdateNotifier(),
       installer: WatchtowerUpdateInstaller(),
       preferencesPrefix: 'watchtower',
+      workDirProvider: () => StorageProvider().updateDirectory(),
       options: const AutoUpdateOptions(
         enabledByDefault: false,
         interval: Duration(hours: 6),
-        downloadOnLaunch: true,
+        // A check only announces the build; the download starts when the user
+        // taps "Télécharger" in the app or on the notification.
+        downloadOnLaunch: false,
         installWhenReady: false,
         channel: 'stable',
       ),
@@ -189,6 +211,9 @@ class AppUpdateService {
     _launchChecked = true;
     try {
       await controller.checkOnLaunch();
+      // The switch survives restarts, the timer does not: resume the periodic
+      // check so the user keeps being told about new builds.
+      if (await controller.isAutoUpdateEnabled()) controller.startPeriodic();
     } catch (e) {
       AppLogger.log(
         'app_updater launch check failed: $e',
@@ -223,6 +248,7 @@ class AppUpdateService {
       phase: state.phase.name,
       progress: state.progress,
       error: state.error,
+      filePath: state.prepared?.file.path,
     );
   }
 
@@ -240,11 +266,21 @@ class AppUpdateService {
   }
 
   /// Installs the downloaded build (silent when the platform allows it).
+  ///
+  /// Falls back to the file saved by the previous download, so it also works
+  /// from a notification after the app was restarted.
   Future<bool> installNow() => controller.install();
 
-  /// Check + background download; the notifier posts the install action.
-  Future<void> checkAndDownload() async {
-    await controller.checkAndDownload(manual: true);
+  /// APK downloaded and waiting to be installed, if any.
+  Future<PreparedUpdate?> pendingUpdate() => controller.pendingUpdate();
+
+  /// Forgets the downloaded build; the file stays in the update folder.
+  Future<void> clearPending() => controller.clearPrepared();
+
+  /// Checks and announces the build; nothing is downloaded until the user
+  /// accepts it. Kept for callers that only want the notification.
+  Future<void> checkAndAnnounce() async {
+    await controller.check(manual: true);
   }
 
   /// Installs the file downloaded by [checkAndDownload].
