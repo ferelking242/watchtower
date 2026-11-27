@@ -336,8 +336,11 @@ class ReaderController extends _$ReaderController {
 
   Chapter getNextChapter() {
     final (index, inFiltered) = getNextChapterIndex();
+    // The index comes from the newest-first navigation list, so the lookup has
+    // to use that same list: reading the display list (which follows the sort
+    // setting) returned the wrong chapter as soon as the user sorted.
     final list = inFiltered
-        ? getManga().getFilteredChapterList()
+        ? _navigationChapters(getManga())
         : getManga().getAllChapterList();
     if (index < 0 || index >= list.length) return chapter;
     return list[index];

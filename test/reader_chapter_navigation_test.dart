@@ -179,21 +179,19 @@ void main() {
 
     final resolved = testIsar.mangas.getSync(mangaId)!;
 
-    // The bug returned the pre-sort list (5,4,3,2,1), ignoring the setting.
-    // The result is then reversed to newest-first, because the reader's next
-    // action walks index -1: a sort must not be allowed to flip navigation.
+    // The displayed list follows the setting: "by upload date" is ascending,
+    // and navigation is what stays newest-first (see the test below).
     expect(resolved.getFilteredChapterList().map((c) => c.id).toList(), [
-      5,
-      4,
-      3,
-      2,
       1,
+      2,
+      3,
+      4,
+      5,
     ]);
 
-    // Sort by chapter name instead: ascending A-Z would be 1,2,3,4,5, so the
-    // newest-first contract still shows 5,4,3,2,1 — proving the *sort* changed
-    // and not just the reversal. "Chapter 10" would sort before "Chapter 2" as
-    // a string, which is why the names here are single digit.
+    // Sort by chapter name instead: ascending A-Z is the same order here, which
+    // proves the sort is applied to the displayed list. "Chapter 10" would sort
+    // before "Chapter 2" as a string, hence the single-digit names.
     testIsar.seed<Settings>(
       kSettingsId,
       Settings()
@@ -201,10 +199,10 @@ void main() {
         ..sortChapterList = [SortChapter(mangaId: mangaId, index: 3)],
     );
     final byName = testIsar.mangas.getSync(mangaId)!.getFilteredChapterList();
-    expect(byName.map((c) => c.id).toList(), [5, 4, 3, 2, 1]);
+    expect(byName.map((c) => c.id).toList(), [1, 2, 3, 4, 5]);
   });
 
-  test('the sort setting reorders chapters before the newest-first reversal', () {
+  test('the sort setting reorders the displayed chapters', () {
     const mangaId = 7006;
     testIsar.seed<Manga>(
       mangaId,
@@ -242,12 +240,59 @@ void main() {
       kSettingsId,
       Settings()
         ..incognitoMode = false
-        // index 2 = by upload date, so ascending is 2,4,1,5,3 and the
-        // newest-first result is the exact reverse of that.
+        // index 2 = by upload date, so the display is 2,4,1,5,3.
         ..sortChapterList = [SortChapter(mangaId: mangaId, index: 2)],
     );
 
     final ordered = testIsar.mangas.getSync(mangaId)!.getFilteredChapterList();
-    expect(ordered.map((c) => c.id).toList(), [3, 5, 1, 4, 2]);
+    expect(ordered.map((c) => c.id).toList(), [2, 4, 1, 5, 3]);
+  });
+
+  test('navigation stays newest-first whatever the sort setting', () {
+    const mangaId = 7007;
+    testIsar.seed<Manga>(
+      mangaId,
+      Manga(
+        id: mangaId,
+        source: 'Harimanga',
+        author: '',
+        artist: '',
+        genre: const [],
+        imageUrl: '',
+        lang: 'en',
+        link: 'https://example.invalid/manga/$mangaId',
+        name: 'Sorted navigation',
+        status: Status.ongoing,
+        description: '',
+        sourceId: 0,
+      ),
+    );
+    // Same upload dates as above: display 2,4,1,5,3, navigation 3,5,1,4,2.
+    const uploads = {1: '300', 2: '100', 3: '500', 4: '200', 5: '400'};
+    for (final entry in uploads.entries) {
+      testIsar.seed<Chapter>(
+        entry.key,
+        Chapter(
+          id: entry.key,
+          mangaId: mangaId,
+          name: 'Chapter ${entry.key}',
+          url: 'https://example.invalid/${entry.key}',
+          dateUpload: entry.value,
+        ),
+      );
+    }
+    testIsar.seed<Settings>(
+      kSettingsId,
+      Settings()
+        ..incognitoMode = false
+        ..sortChapterList = [SortChapter(mangaId: mangaId, index: 2)],
+    );
+
+    // Navigation walks by chapter number, newest first: [5, 4, 3, 2, 1]. From
+    // Chapter 4, "next" is 5 and "previous" is 3 — reading the sorted display
+    // list ([2, 4, 1, 5, 3]) at that index returned 2 instead.
+    final controller = controllerFor(testIsar.chapters.getSync(4)!);
+    expect(controller.getNextChapter().id, 5);
+    expect(controller.getPrevChapter().id, 3);
   });
 }
