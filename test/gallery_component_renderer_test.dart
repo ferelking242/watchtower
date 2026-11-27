@@ -263,7 +263,7 @@ void main() {
     // L'en-tête (titre + « Tout voir ») appartient à la section, plus à la
     // carte : la carte reste nue.
     expect(find.text('Top 10 Anime'), findsOneWidget);
-    await tester.tap(find.text('Tout voir'));
+    await tester.tap(find.text('Tout >'));
     expect(seeAllCount, 1);
   });
 
