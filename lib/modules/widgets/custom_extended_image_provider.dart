@@ -761,11 +761,26 @@ class CustomExtendedNetworkImageProvider
         'after native transport error: $error',
         level: LogLevel.warning,
       );
-      response = await MClient.init(
-        reqcopyWith: {'useDartHttpClient': true},
-        showCloudFlareError: showCloudFlareError,
-        extensionSourceId: sourceId,
-      ).send(_buildImageRequest(resolved));
+      try {
+        response = await MClient.init(
+          reqcopyWith: {'useDartHttpClient': true},
+          showCloudFlareError: showCloudFlareError,
+          extensionSourceId: sourceId,
+        ).send(_buildImageRequest(resolved));
+      } catch (dartError) {
+        // `http_interceptor`'s `_attemptRequest` only catches `Exception`, so
+        // an `Error` raised inside the interceptor chain (a `TypeError`, seen
+        // on device) escapes `send` unwrapped and kills both MClient
+        // transports before they reach the socket — every cover stayed a
+        // placeholder. A bare `HttpClient` has no interceptor chain, and the
+        // CDN answers it with the cover headers replayed.
+        _imgLog(
+          'retry (plain http) ${_shortUrl(resolved.toString())} '
+          'after dart transport error: $dartError',
+          level: LogLevel.warning,
+        );
+        response = await _plainClientSend(resolved);
+      }
     }
 
     if (response.statusCode != 200 && !usedDartFallback) {
@@ -802,6 +817,44 @@ class CustomExtendedNetworkImageProvider
     }
 
     return response;
+  }
+
+  /// Bare cover download used only after both `MClient` transports failed
+  /// before producing a response. It replays the cover headers (UA, Referer,
+  /// Accept) on a fresh [io.HttpClient] with no interceptor chain.
+  Future<StreamedResponse> _plainClientSend(Uri resolved) async {
+    final client = io.HttpClient();
+    try {
+      final request = await client.openUrl('GET', resolved);
+      request.followRedirects = true;
+      _buildImageRequest(resolved).headers.forEach((name, value) {
+        final key = name.toLowerCase();
+        // `dart:io` negotiates its own compression and cannot decode br.
+        if (key == 'content-type' || key == 'accept-encoding') return;
+        request.headers.set(name, value);
+      });
+      final response = await request.close();
+      final bytes = <int>[];
+      await for (final chunk in response) {
+        bytes.addAll(chunk);
+      }
+      final headers = <String, String>{};
+      response.headers.forEach((name, values) {
+        headers[name] = values.join(', ');
+      });
+      return StreamedResponse(
+        Stream<List<int>>.value(bytes),
+        response.statusCode,
+        contentLength: bytes.length,
+        request: Request('GET', resolved),
+        headers: headers,
+        isRedirect: response.isRedirect,
+        persistentConnection: false,
+        reasonPhrase: response.reasonPhrase,
+      );
+    } finally {
+      client.close(force: true);
+    }
   }
 
   // Http get with cancel, exponential backoff retry
