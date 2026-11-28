@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
     show AniListErrorView;
+import 'package:watchtower/modules/anime/anime_discovery_feed.dart'
+    show AnimeDiscoveryLoadingScreen;
+import 'package:watchtower/modules/anime/anilist_cinematic_hero.dart';
+import 'package:watchtower/modules/media/widgets/wave_pull_refresh.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
-import 'package:watchtower/modules/home/widgets/hero_carousel.dart';
-import 'package:watchtower/modules/home/widgets/skeleton_home.dart';
 
 /// Manga tab — AniList-powered discover page with origin sub-rows
 /// (manga / manhwa / manhua) and genre category cards.
@@ -65,18 +67,30 @@ class MangaDiscoveryScreen extends ConsumerWidget {
       body: SafeArea(
         bottom: false,
         child: asyncHome.when(
-          loading: () => const SkeletonHomeScreen(),
+          loading: () => const AnimeDiscoveryLoadingScreen(),
           error: (e, _) => AniListErrorView(
             error: e,
             onRetry: () => ref.invalidate(anilistHomeProvider),
           ),
-          data: (home) => CustomScrollView(
+          data: (home) => WavePullRefresh(
+            onRefresh: () async {
+              ref.invalidate(anilistHomeProvider);
+              await ref.read(anilistHomeProvider.future);
+            },
+            child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(
-                child: HeroCarousel(
-                  items: home.trendingMangas.take(8).toList(),
-                  onItemTap: (m) => _openDetail(context, m),
+                child: AnilistCinematicHero(
+                  items: home.trendingMangas.take(10).toList(growable: false),
+                  onTap: (index) {
+                    final items = home.trendingMangas.take(10).toList(growable: false);
+                    if (index < items.length) {
+                      _openDetail(context, items[index]);
+                    }
+                  },
+                  onLibraryPressed: () => context.push('/Library'),
+                  onSearchPressed: () => context.push('/globalSearch'),
                 ),
               ),
               SliverPadding(
@@ -183,6 +197,7 @@ class MangaDiscoveryScreen extends ConsumerWidget {
             ],
           ),
         ),
+            ),
       ),
     );
   }

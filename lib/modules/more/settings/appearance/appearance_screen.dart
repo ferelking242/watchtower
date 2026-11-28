@@ -26,7 +26,6 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 /// Dock/sidebar entries. Labels are resolved through [navigationItemLabel] so
 /// the reorder list renders in the active locale.
 const navigationItems = <String, String>{
-  "/WatchtowerHome": "home",
   "/Library": "library",
   "/MangaLibrary": "manga",
   "/AnimeLibrary": "watch",

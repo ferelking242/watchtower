@@ -834,7 +834,7 @@ class _MyAppState extends ConsumerState<MyApp>
             .read(navigationOrderStateProvider)
             .where((e) => !hiddenItems.contains(e))
             .firstOrNull ??
-        '/WatchtowerHome';
+        '/Library';
   }
 
   @override

@@ -73,7 +73,6 @@ import 'package:watchtower/modules/music/pages/search/music_search_screen.dart';
 import 'package:watchtower/modules/game/game_discovery_screen.dart';
 import 'package:watchtower/modules/plugin/nfile/ui/screens/home_screen.dart'
     as nfile_home;
-import 'package:watchtower/modules/home/watchtower_home_screen.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/media_hub_screen.dart';
@@ -265,9 +264,11 @@ class RouterNotifier extends ChangeNotifier {
           name: "nfileHome",
           child: nfile_home.HomeScreen(toggleTheme: () {}),
         ),
-        _genericRoute(
-          name: "WatchtowerHome",
-          child: const WatchtowerHomeScreen(),
+        // Accueil was removed; keep the old deep links working by landing on
+        // the cross-type library instead of resurrecting the page.
+        GoRoute(
+          path: '/WatchtowerHome',
+          redirect: (_, _) => '/Library',
         ),
         _genericRoute<String?>(
           name: "trackerLibrary",
@@ -710,7 +711,6 @@ class RouterNotifier extends ChangeNotifier {
       'MusicLibraryPage',
       'MusicHubSettings',
       'GameLibrary',
-      'WatchtowerHome',
     };
     // Crash-safe builder: state.extra can be null if a route is opened via
     // context.go('/routeName') without passing extra. The unchecked cast

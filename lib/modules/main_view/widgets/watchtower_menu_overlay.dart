@@ -36,7 +36,6 @@ class _MenuItem {
 }
 
 const kWtRouteInfo = <String, (String, IconData)>{
-  '/WatchtowerHome': ('Accueil', Broken.home_2),
   '/AnimeLibrary': ('Anime', Broken.video_play),
   '/MoviesLibrary': ('Movies', Broken.video),
   '/MangaLibrary': ('Manga', Broken.book),
@@ -73,14 +72,12 @@ const kWtDefaultNavOrder = [
   '/history',
   '/updates',
   '/trackerLibrary',
-  '/WatchtowerHome',
 ];
 
 const kWtDefaultHideItems = [
   '/trackerLibrary',
   '/updates',
   '/history',
-  '/WatchtowerHome',
   '/discover',
 ];
 

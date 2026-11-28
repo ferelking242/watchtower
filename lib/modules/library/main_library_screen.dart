@@ -1,8 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1119,276 +1117,112 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               : cs.onSurface.withValues(alpha: 0.06),
         ),
         child: ClipOval(
-          child: AdaptiveOverlayMenu<int>(
-            icon: Icon(
+          child: AdaptiveOverlayMenuButton(
+            menuWidth: 288,
+            trigger: Icon(
               Broken.more_2,
               color: isDark
                   ? cs.onSurface.withValues(alpha: 0.60)
                   : cs.onSurface.withValues(alpha: 0.55),
               size: _kActionBtnIconSize,
             ),
-            padding: EdgeInsets.zero,
-            menuWidth: 230,
-            itemBuilder: (_) => [
-              PopupMenuItem<int>(
-                value: 1,
-                child: Row(
-                  children: [
-                    const Icon(Broken.refresh_left_square, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.update_library),
-                  ],
-                ),
+            contentBuilder: (close) => _LibraryOverflowPanel(
+              l10n: l10n,
+              showTorrent: _currentType == ItemType.anime,
+              onUpdateLibrary: () => updateLibrary(
+                ref: ref,
+                context: context,
+                mangaList: mangaList,
+                itemType: _currentType,
               ),
-              PopupMenuItem<int>(
-                value: 2,
-                child: Row(
-                  children: [
-                    const Icon(Broken.shuffle, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.open_random_entry),
-                  ],
+              onRandom: () => _openRandom(mangaList),
+              onImport: () => showImportLocalDialog(context, _currentType),
+              onTorrent: () => addTorrent(context),
+              onSettings: () => context.push('/librarySettings'),
+              activityItems: [
+                _LibraryMenuItem(
+                  icon: Broken.clock,
+                  label: l10n.history,
+                  onTap: () => context.push('/history'),
                 ),
-              ),
-              PopupMenuItem<int>(
-                value: 3,
-                child: Row(
-                  children: [
-                    const Icon(Broken.folder_add, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.import),
-                  ],
+                _LibraryMenuItem(
+                  icon: Broken.notification,
+                  label: l10n.updates,
+                  onTap: () => context.push('/updates'),
                 ),
-              ),
-              if (_currentType == ItemType.anime)
-                PopupMenuItem<int>(
-                  value: 4,
-                  child: Row(
-                    children: [
-                      const Icon(Broken.video, size: 18),
-                      const SizedBox(width: 12),
-                      Text(l10n.torrent_stream),
-                    ],
+                _LibraryMenuItem(
+                  icon: Broken.calendar,
+                  label: l10n.schedule,
+                  onTap: () => context.push('/schedule'),
+                ),
+                _LibraryMenuItem(
+                  icon: Broken.document_download,
+                  label: l10n.downloads,
+                  onTap: () => context.push('/downloads'),
+                ),
+              ],
+              maintenanceItems: [
+                _LibraryMenuItem(
+                  icon: Broken.refresh_left_square,
+                  label: l10n.settings_reindex_downloads,
+                  subtitle: l10n.settings_reindex_downloads_desc,
+                  onTap: () => _runMaintenance(
+                    context,
+                    notifTitle: l10n.settings_reindex_downloads,
+                    busyMessage: l10n.settings_reindexing,
+                    run: (onProgress) => reindexDownloads(
+                      onProgress: onProgress,
+                      itemType: _currentType,
+                    ),
+                    message: (result) => reindexToastMessage(l10n, result),
                   ),
                 ),
-              const PopupMenuItem<int>(
-                enabled: false,
-                value: 99,
-                child: Divider(height: 1, indent: 0, endIndent: 0),
-              ),
-              // Activity / Maintenance / Library settings are *sub-menus*: the
-              // caret marks them so a tap that opens another panel is not
-              // mistaken for an action that already ran.
-              PopupMenuItem<int>(
-                value: 5,
-                child: Row(
-                  children: [
-                    const Icon(Broken.clock, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.library_menu_activity),
-                    const Spacer(),
-                    const Icon(Broken.arrow_right_3, size: 14),
-                  ],
+                _LibraryMenuItem(
+                  icon: Broken.folder_favorite,
+                  label: l10n.settings_downloads_not_in_library,
+                  subtitle: l10n.settings_downloads_not_in_library_desc,
+                  onTap: () => _runMaintenance(
+                    context,
+                    notifTitle: l10n.settings_downloads_not_in_library,
+                    busyMessage: l10n.settings_checking,
+                    run: (onProgress) => addDownloadedToLibrary(
+                      onProgress: onProgress,
+                      itemType: _currentType,
+                    ),
+                    message: (added) => addDownloadedToastMessage(l10n, added),
+                  ),
                 ),
-              ),
-              PopupMenuItem<int>(
-                value: 6,
-                child: Row(
-                  children: [
-                    const Icon(Broken.setting, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.library_menu_maintenance),
-                    const Spacer(),
-                    const Icon(Broken.arrow_right_3, size: 14),
-                  ],
+                _LibraryMenuItem(
+                  icon: Broken.trash,
+                  label: l10n.settings_purge_missing_downloads,
+                  subtitle: l10n.settings_purge_missing_downloads_desc,
+                  onTap: () => _runMaintenance(
+                    context,
+                    notifTitle: l10n.settings_purge_missing_downloads,
+                    busyMessage: l10n.settings_checking,
+                    run: (onProgress) => purgeMissingDownloads(
+                      onProgress: onProgress,
+                      itemType: _currentType,
+                    ),
+                    message: (purged) => purgeMissingToastMessage(l10n, purged),
+                  ),
                 ),
-              ),
-              const PopupMenuItem<int>(
-                enabled: false,
-                value: 99,
-                child: Divider(height: 1, indent: 0, endIndent: 0),
-              ),
-              PopupMenuItem<int>(
-                value: 10,
-                child: Row(
-                  children: [
-                    const Icon(Broken.setting_2, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.library_settings_title),
-                  ],
+                _LibraryMenuItem(
+                  icon: Broken.gallery_slash,
+                  label: l10n.library_clear_image_cache,
+                  subtitle: l10n.library_clear_image_cache_desc,
+                  onTap: () {
+                    PaintingBinding.instance.imageCache
+                      ..clear()
+                      ..clearLiveImages();
+                    botToast(l10n.cache_cleared);
+                  },
                 ),
-              ),
-            ],
-            onSelected: (v) {
-              switch (v) {
-                case 1:
-                  updateLibrary(
-                    ref: ref,
-                    context: context,
-                    mangaList: mangaList,
-                    itemType: _currentType,
-                  );
-                  break;
-                case 2:
-                  _openRandom(mangaList);
-                  break;
-                case 3:
-                  showImportLocalDialog(context, _currentType);
-                  break;
-                case 4:
-                  addTorrent(context);
-                  break;
-                case 5:
-                  _openSubMenuAfterPopup(context, _showActivityMenu);
-                  break;
-                case 6:
-                  _openSubMenuAfterPopup(context, _showMaintenanceMenu);
-                  break;
-                case 10:
-                  context.push('/librarySettings');
-                  break;
-              }
-            },
+              ],
+              onClose: close,
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  // ── Sub-menu opener ────────────────────────────────────────────────────────
-  //
-  // The three-dots popup closes itself as soon as an item is picked, so opening
-  // the nested Activity/Maintenance sheet straight from `onSelected` raced the
-  // popup's exit animation and the sheet flickered under the closing panel.
-  // Defer the sheet by one frame so the popup is gone first.
-  void _openSubMenuAfterPopup(
-    BuildContext context,
-    void Function(BuildContext) open,
-  ) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) open(context);
-    });
-  }
-
-  // ── Activity sub-menu (History / Updates / Schedule / Downloads) ───────────
-
-  void _showActivityMenu(BuildContext context) {
-    final l10n = l10nLocalizations(context)!;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _LibraryMenuSheet(
-        title: l10n.library_menu_activity,
-        items: [
-          _LibraryMenuItem(
-            icon: Broken.clock,
-            label: l10n.history,
-            onTap: () {
-              Navigator.pop(ctx);
-              context.push('/history');
-            },
-          ),
-          _LibraryMenuItem(
-            icon: Broken.notification,
-            label: l10n.updates,
-            onTap: () {
-              Navigator.pop(ctx);
-              context.push('/updates');
-            },
-          ),
-          _LibraryMenuItem(
-            icon: Broken.calendar,
-            label: l10n.schedule,
-            onTap: () {
-              Navigator.pop(ctx);
-              context.push('/schedule');
-            },
-          ),
-          _LibraryMenuItem(
-            icon: Broken.document_download,
-            label: l10n.downloads,
-            onTap: () {
-              Navigator.pop(ctx);
-              context.push('/downloads');
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Maintenance sub-menu (Reindex / Downloads not in library) ──────────────
-
-  void _showMaintenanceMenu(BuildContext context) {
-    final l10n = l10nLocalizations(context)!;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => _LibraryMenuSheet(
-        title: l10n.library_menu_maintenance,
-        items: [
-          _LibraryMenuItem(
-            icon: Broken.refresh_left_square,
-            label: l10n.settings_reindex_downloads,
-            subtitle: l10n.settings_reindex_downloads_desc,
-            onTap: () {
-              Navigator.pop(ctx);
-              _runMaintenance(
-                context,
-                notifTitle: l10n.settings_reindex_downloads,
-                busyMessage: l10n.settings_reindexing,
-                run: (onProgress) => reindexDownloads(onProgress: onProgress),
-                message: (result) => reindexToastMessage(l10n, result),
-              );
-            },
-          ),
-          _LibraryMenuItem(
-            icon: Broken.folder_favorite,
-            label: l10n.settings_downloads_not_in_library,
-            subtitle: l10n.settings_downloads_not_in_library_desc,
-            onTap: () {
-              Navigator.pop(ctx);
-              _runMaintenance(
-                context,
-                notifTitle: l10n.settings_downloads_not_in_library,
-                busyMessage: l10n.settings_checking,
-                run: (onProgress) =>
-                    addDownloadedToLibrary(onProgress: onProgress),
-                message: (added) => addDownloadedToastMessage(l10n, added),
-              );
-            },
-          ),
-          _LibraryMenuItem(
-            icon: Broken.trash,
-            label: l10n.settings_purge_missing_downloads,
-            subtitle: l10n.settings_purge_missing_downloads_desc,
-            onTap: () {
-              Navigator.pop(ctx);
-              _runMaintenance(
-                context,
-                notifTitle: l10n.settings_purge_missing_downloads,
-                busyMessage: l10n.settings_checking,
-                run: (onProgress) =>
-                    purgeMissingDownloads(onProgress: onProgress),
-                message: (purged) => purgeMissingToastMessage(l10n, purged),
-              );
-            },
-          ),
-          _LibraryMenuItem(
-            icon: Broken.gallery_slash,
-            label: l10n.library_clear_image_cache,
-            subtitle: l10n.library_clear_image_cache_desc,
-            onTap: () {
-              Navigator.pop(ctx);
-              PaintingBinding.instance.imageCache
-                ..clear()
-                ..clearLiveImages();
-              botToast(l10n.cache_cleared);
-            },
-          ),
-        ],
       ),
     );
   }
@@ -2084,7 +1918,7 @@ class _CatRow extends ConsumerWidget {
 
 // ─── Library sub-menu sheet (Activity / Maintenance) ─────────────────────────
 
-/// A single row inside a [_LibraryMenuSheet].
+/// A single row inside the library three-dots overlay.
 class _LibraryMenuItem {
   const _LibraryMenuItem({
     required this.icon,
@@ -2099,100 +1933,125 @@ class _LibraryMenuItem {
   final VoidCallback onTap;
 }
 
-/// Bottom sheet used for the nested "Activité" and "Maintenance" sub-menus of
-/// the library three-dots button. Styled like the filter overlay: a single
-/// translucent glass panel with a grab handle, so the sub-options read as a
-/// proper sheet instead of a block nested inside the popup.
-class _LibraryMenuSheet extends StatelessWidget {
-  const _LibraryMenuSheet({required this.title, required this.items});
+/// Three-dots panel shared with the filter overlay: Activity and Maintenance
+/// open their options *inside* the same glass box instead of spawning a
+/// bottom sheet.
+class _LibraryOverflowPanel extends StatefulWidget {
+  const _LibraryOverflowPanel({
+    required this.l10n,
+    required this.showTorrent,
+    required this.activityItems,
+    required this.maintenanceItems,
+    required this.onUpdateLibrary,
+    required this.onRandom,
+    required this.onImport,
+    required this.onTorrent,
+    required this.onSettings,
+    required this.onClose,
+  });
 
-  final String title;
-  final List<_LibraryMenuItem> items;
+  final dynamic l10n;
+  final bool showTorrent;
+  final List<_LibraryMenuItem> activityItems;
+  final List<_LibraryMenuItem> maintenanceItems;
+  final VoidCallback onUpdateLibrary;
+  final VoidCallback onRandom;
+  final VoidCallback onImport;
+  final VoidCallback onTorrent;
+  final VoidCallback onSettings;
+  final VoidCallback onClose;
+
+  @override
+  State<_LibraryOverflowPanel> createState() => _LibraryOverflowPanelState();
+}
+
+enum _LibraryOverflowPage { root, activity, maintenance }
+
+class _LibraryOverflowPanelState extends State<_LibraryOverflowPanel> {
+  _LibraryOverflowPage _page = _LibraryOverflowPage.root;
+
+  void _run(VoidCallback action) {
+    widget.onClose();
+    action();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark
-        ? cs.surface.withValues(alpha: 0.92)
-        : cs.surfaceContainerHigh.withValues(alpha: 0.96);
-    final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.09)
-        : Colors.black.withValues(alpha: 0.06);
-
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: borderColor, width: 0.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.13),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
-                    spreadRadius: -4,
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Grab handle
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 10),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: cs.onSurface.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                  ),
-                  for (final item in items)
-                    ListTile(
-                      leading: Icon(item.icon, color: cs.onSurfaceVariant),
-                      title: Text(item.label),
-                      subtitle: item.subtitle == null
-                          ? null
-                          : Text(
-                              item.subtitle!,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                            ),
-                      onTap: item.onTap,
-                    ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
-          ),
+    final l10n = widget.l10n;
+    final children = <Widget>[];
+    if (_page == _LibraryOverflowPage.root) {
+      children.addAll([
+        AdaptiveOverlayItem(
+          icon: Broken.refresh_left_square,
+          label: l10n.update_library,
+          onTap: () => _run(widget.onUpdateLibrary),
         ),
-      ),
+        AdaptiveOverlayItem(
+          icon: Broken.shuffle,
+          label: l10n.open_random_entry,
+          onTap: () => _run(widget.onRandom),
+        ),
+        AdaptiveOverlayItem(
+          icon: Broken.folder_add,
+          label: l10n.import,
+          onTap: () => _run(widget.onImport),
+        ),
+        if (widget.showTorrent)
+          AdaptiveOverlayItem(
+            icon: Broken.video,
+            label: l10n.torrent_stream,
+            onTap: () => _run(widget.onTorrent),
+          ),
+        const AdaptiveOverlayDivider(),
+        AdaptiveOverlayItem(
+          icon: Broken.clock,
+          label: l10n.library_menu_activity,
+          trailing: const Icon(Broken.arrow_right_3, size: 14),
+          onTap: () =>
+              setState(() => _page = _LibraryOverflowPage.activity),
+        ),
+        AdaptiveOverlayItem(
+          icon: Broken.setting,
+          label: l10n.library_menu_maintenance,
+          trailing: const Icon(Broken.arrow_right_3, size: 14),
+          onTap: () =>
+              setState(() => _page = _LibraryOverflowPage.maintenance),
+        ),
+        const AdaptiveOverlayDivider(),
+        AdaptiveOverlayItem(
+          icon: Broken.setting_2,
+          label: l10n.library_settings_title,
+          onTap: () => _run(widget.onSettings),
+        ),
+      ]);
+    } else {
+      final isActivity = _page == _LibraryOverflowPage.activity;
+      final items = isActivity
+          ? widget.activityItems
+          : widget.maintenanceItems;
+      children.addAll([
+        AdaptiveOverlayItem(
+          icon: Broken.arrow_left_2,
+          label: isActivity
+              ? l10n.library_menu_activity
+              : l10n.library_menu_maintenance,
+          onTap: () => setState(() => _page = _LibraryOverflowPage.root),
+        ),
+        const AdaptiveOverlayDivider(),
+        for (final item in items)
+          AdaptiveOverlayItem(
+            icon: item.icon,
+            label: item.label,
+            subtitle: item.subtitle,
+            onTap: () => _run(item.onTap),
+          ),
+      ]);
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
     );
   }
 }

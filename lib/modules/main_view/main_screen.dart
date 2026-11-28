@@ -144,7 +144,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     _defaultLocation =
         _navigationOrder.where((e) => !hiddenItems.contains(e)).firstOrNull ??
-        '/WatchtowerHome';
+        '/Library';
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -656,12 +656,42 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         location == '/novelReaderView';
   }
 
+  /// Hub keeps its own label but borrows the icon of the library page it is
+  /// currently parked on, so leaving the Hub sub-dock on Anime still reads
+  /// "Hub" with the Anime glyph instead of a generic grid.
+  ({IconData icon, IconData selected}) _hubDockIcons(String? location) {
+    final loc = location ?? '';
+    if (loc.startsWith('/MoviesLibrary')) {
+      return (icon: Broken.video_horizontal, selected: Broken.video);
+    }
+    if (loc.startsWith('/SeriesLibrary')) {
+      return (icon: Broken.monitor_mobbile, selected: Broken.monitor);
+    }
+    if (loc.startsWith('/AnimeLibrary')) {
+      return (icon: Broken.video_octagon, selected: Broken.video_square);
+    }
+    if (loc.startsWith('/MangaLibrary')) {
+      return (icon: Broken.book_1, selected: Broken.book_square);
+    }
+    if (loc.startsWith('/NovelLibrary')) {
+      return (icon: Broken.text, selected: Broken.note_text);
+    }
+    if (loc.startsWith('/MusicLibrary')) {
+      return (icon: Broken.music_playlist, selected: Broken.music_circle);
+    }
+    if (loc.startsWith('/GameLibrary')) {
+      return (icon: Broken.gameboy, selected: Broken.gameboy);
+    }
+    return (icon: Broken.category_2, selected: Broken.category);
+  }
+
   List<NavigationRailDestination> _buildNavigationWidgetsDesktop(
     WidgetRef ref,
     List<String> dest,
     BuildContext context,
   ) {
-    final cacheKey = dest.join(',');
+    final liveLocation = ref.watch(routerCurrentLocationStateProvider);
+    final cacheKey = '${dest.join(',')}|$liveLocation';
     if (_desktopDestinationsCache.containsKey(cacheKey)) {
       return _desktopDestinationsCache[cacheKey]!;
     }
@@ -671,7 +701,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       dest.length,
       null,
     );
+    final hubIcons = _hubDockIcons(liveLocation);
 
+    if (dest.contains('_enableLibSwitch')) {
+      destinations[dest.indexOf('_enableLibSwitch')] =
+          NavigationRailDestination(
+            selectedIcon: Icon(hubIcons.selected),
+            icon: Icon(hubIcons.icon),
+            label: Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text(l10n.nav_hub),
+            ),
+          );
+    }
     if (dest.contains("/Library")) {
       destinations[dest.indexOf("/Library")] = NavigationRailDestination(
         selectedIcon: const Icon(Broken.book_saved),
@@ -753,16 +795,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.nav_games),
-        ),
-      );
-    }
-    if (dest.contains("/WatchtowerHome")) {
-      destinations[dest.indexOf("/WatchtowerHome")] = NavigationRailDestination(
-        selectedIcon: const Icon(Broken.home_2),
-        icon: const Icon(Broken.home_1),
-        label: Padding(
-          padding: const EdgeInsets.only(top: 5),
-          child: Text(l10n.nav_home),
         ),
       );
     }
@@ -893,7 +925,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     List<String> dest,
     BuildContext context,
   ) {
-    final cacheKey = dest.join(',');
+    final liveLocation = ref.watch(routerCurrentLocationStateProvider);
+    final cacheKey = '${dest.join(',')}|$liveLocation';
     if (_mobileDestinationsCache.containsKey(cacheKey)) {
       return _mobileDestinationsCache[cacheKey]!;
     }
@@ -925,9 +958,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
     if (dest.contains('_enableLibSwitch')) {
+      final hubIcons = _hubDockIcons(liveLocation);
       destMap['_enableLibSwitch'] = NavigationDestination(
-        selectedIcon: const Icon(Broken.category),
-        icon: const Icon(Broken.category_2),
+        selectedIcon: Icon(hubIcons.selected),
+        icon: Icon(hubIcons.icon),
         label: l10n.nav_hub,
       );
     }
@@ -992,13 +1026,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         selectedIcon: const Icon(Broken.gameboy),
         icon: const Icon(Broken.gameboy),
         label: l10n.nav_games,
-      );
-    }
-    if (dest.contains('/WatchtowerHome')) {
-      destMap['/WatchtowerHome'] = NavigationDestination(
-        selectedIcon: const Icon(Broken.home_2),
-        icon: const Icon(Broken.home_1),
-        label: l10n.nav_home,
       );
     }
     if (dest.contains('/updates')) {
@@ -2012,6 +2039,32 @@ class _FloatingDock extends StatefulWidget {
   State<_FloatingDock> createState() => _FloatingDockState();
 }
 
+({IconData icon, IconData selected}) _hubDockIconsFor(String? location) {
+  final loc = location ?? '';
+  if (loc.startsWith('/MoviesLibrary')) {
+    return (icon: Broken.video_horizontal, selected: Broken.video);
+  }
+  if (loc.startsWith('/SeriesLibrary')) {
+    return (icon: Broken.monitor_mobbile, selected: Broken.monitor);
+  }
+  if (loc.startsWith('/AnimeLibrary')) {
+    return (icon: Broken.video_octagon, selected: Broken.video_square);
+  }
+  if (loc.startsWith('/MangaLibrary')) {
+    return (icon: Broken.book_1, selected: Broken.book_square);
+  }
+  if (loc.startsWith('/NovelLibrary')) {
+    return (icon: Broken.text, selected: Broken.note_text);
+  }
+  if (loc.startsWith('/MusicLibrary')) {
+    return (icon: Broken.music_playlist, selected: Broken.music_circle);
+  }
+  if (loc.startsWith('/GameLibrary')) {
+    return (icon: Broken.gameboy, selected: Broken.gameboy);
+  }
+  return (icon: Broken.category_2, selected: Broken.category);
+}
+
 double _floatingDockScale(double screenWidth) {
   if (screenWidth >= 1600) return 1.30;
   if (screenWidth >= 1200) return 1.22;
@@ -2264,12 +2317,13 @@ class _FloatingDockState extends State<_FloatingDock> {
             ),
           );
         case '_enableLibSwitch':
+          final hubIcons = _hubDockIconsFor(widget.location);
           items.add(
             _DockItemData(
               route: '_enableLibSwitch',
               label: l10n.nav_hub,
-              icon: Broken.category_2,
-              activeIcon: Broken.category,
+              icon: hubIcons.icon,
+              activeIcon: hubIcons.selected,
             ),
           );
         case '_disableLibSwitch':

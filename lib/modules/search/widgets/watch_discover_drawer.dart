@@ -17,7 +17,6 @@ import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode
 
 // ── Broken icon mapping for Watchtower routes ──────────────────────────────────
 const _kRouteIcon = <String, IconData>{
-  '/WatchtowerHome': Broken.home_2,
   '/AnimeLibrary': Broken.video_square,
   '/MangaLibrary': Broken.book_1,
   '/NovelLibrary': Broken.book_saved,

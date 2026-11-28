@@ -195,9 +195,23 @@ class FullScreenReaderState extends _$FullScreenReaderState {
 
 @riverpod
 class NavigationOrderState extends _$NavigationOrderState {
-  /// The all-in-one hub leads, then film, series, anime, manga, novels, music
-  /// and games.
+  /// Clean four-slot dock: the Hub umbrella (every library collapses into it),
+  /// then the cross-type library, Explorer and the menu.
   final items = [
+    '/AnimeLibrary',
+    '/MoviesLibrary',
+    '/SeriesLibrary',
+    '/MangaLibrary',
+    '/NovelLibrary',
+    '/MusicLibrary',
+    '/GameLibrary',
+    '/Library',
+    '/browse',
+  ];
+
+  /// Order with the now-removed Accueil page first. Kept so untouched installs
+  /// drop that page instead of keeping it in the dock.
+  static const _homeFirstDefault = [
     '/WatchtowerHome',
     '/MoviesLibrary',
     '/SeriesLibrary',
@@ -285,7 +299,8 @@ class NavigationOrderState extends _$NavigationOrderState {
         stored.isEmpty ||
             _sameOrder(stored, _legacyDefault) ||
             _sameOrder(stored, _previousDefault) ||
-            _sameOrder(stored, _moviesFirstDefault)
+            _sameOrder(stored, _moviesFirstDefault) ||
+            _sameOrder(stored, _homeFirstDefault)
         ? List<String>.from(items)
         : stored;
     return _checkMissingItems(order);

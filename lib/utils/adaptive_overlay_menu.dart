@@ -373,6 +373,7 @@ class AdaptiveOverlayItem extends StatelessWidget {
     super.key,
     this.icon,
     required this.label,
+    this.subtitle,
     this.trailing,
     this.selected = false,
     this.enabled = true,
@@ -381,6 +382,7 @@ class AdaptiveOverlayItem extends StatelessWidget {
 
   final IconData? icon;
   final String label;
+  final String? subtitle;
   final Widget? trailing;
   final bool selected;
   final bool enabled;
@@ -415,13 +417,33 @@ class AdaptiveOverlayItem extends StatelessWidget {
               const SizedBox(width: 12),
             ],
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: selected ? cs.primary : textColor,
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: selected ? cs.primary : textColor,
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textColor.withValues(alpha: 0.55),
+                          fontSize: 11,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             if (trailing != null) trailing!,

@@ -25,6 +25,7 @@ import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart'
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart' show isCloudflareError;
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/services/download_series_metadata.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
 import 'package:watchtower/modules/more/download_queue/download_slot_allocation.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
@@ -758,6 +759,7 @@ Future<bool> queueVideoQualityDownload({
     chapterPreferredLang[id] = language;
   }
   await container.read(addDownloadToQueueProvider(chapter: variant).future);
+  _rememberSeriesMetadata(variant);
   container.read(downloadQueueStateProvider.notifier).setPaused(id, false);
   container.read(processDownloadsProvider());
   return true;
@@ -1225,6 +1227,29 @@ class _VideoListTileState extends State<_VideoListTile> {
   }
 }
 
+
+/// Remembers the original extension and cover next to the downloaded files.
+///
+/// The local import path cannot recover them from a folder once the app is
+/// reinstalled, so the sidecar is what keeps the Watch covers and the real
+/// provider name after a scan.
+void _rememberSeriesMetadata(Chapter chapter) {
+  final manga = chapter.manga.value;
+  if (manga == null) return;
+  var changed = false;
+  if ((manga.imageUrl ?? '').isEmpty &&
+      (chapter.thumbnailUrl ?? '').isNotEmpty) {
+    manga.imageUrl = chapter.thumbnailUrl;
+    changed = true;
+  }
+  if (changed) {
+    try {
+      isar.writeTxnSync(() => isar.mangas.putSync(manga));
+    } catch (_) {}
+  }
+  unawaited(writeSeriesMetadata(manga));
+}
+
 /// Persist the download row and its IsarLink in the same transaction.
 void _putDownloadForChapter(Download download, Chapter chapter) {
   download.chapter.value = chapter;
@@ -1387,6 +1412,7 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     // The chapter is queued again, so any reason from a previous attempt is
     // stale and must not keep showing on the row.
     if (id != null) DownloadFailureStore.instance.clear(id);
+    _rememberSeriesMetadata(linkedChapter);
   } catch (error, stackTrace) {
     AppLogger.log(
       '[ch:${id ?? "?"}] queue persistence failed',

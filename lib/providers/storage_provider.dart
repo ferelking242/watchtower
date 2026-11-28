@@ -447,14 +447,24 @@ class StorageProvider {
   Future<Directory?> getMangaMainDirectory(Chapter chapter) async {
     final manga = resolveChapterManga(chapter);
     if (manga == null) return null;
+    return getMangaMainDirectoryFor(manga);
+  }
+
+  /// Same path as [getMangaMainDirectory] but resolved straight from a stored
+  /// series. Maintenance scans walk the library without a chapter in hand.
+  Future<Directory?> getMangaMainDirectoryFor(Manga manga) async {
     final dir = await getDirectory();
     if (dir == null) return null;
+    final source = (manga.source ?? '').trim();
+    final lang = (manga.lang ?? '').trim();
+    final name = (manga.name ?? '').trim();
+    if (name.isEmpty) return null;
     return Directory(
       path.join(
         dir.path,
         'download',
-        '${manga.source} (${manga.lang!.toUpperCase()})',
-        manga.name!.replaceForbiddenCharacters('_'),
+        lang.isEmpty ? source : '$source (${lang.toUpperCase()})',
+        name.replaceForbiddenCharacters('_'),
       ),
     );
   }

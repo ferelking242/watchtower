@@ -7,11 +7,11 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_directory_screen.dart';
+import 'package:watchtower/modules/anime/anilist_cinematic_hero.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
-import 'package:watchtower/modules/media/cinematic_hero.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/widgets/wave_pull_refresh.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
@@ -346,20 +346,8 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
 
   Widget _animeHero(BuildContext context) {
     final items = home.trendingAnimes.take(10).toList(growable: false);
-    if (items.isEmpty) return const SizedBox.shrink();
-    return CinematicHero(
-      items: [
-        for (final media in items)
-          CinematicHeroItem(
-            title: media.displayTitle,
-            imageUrl: media.bannerImage ?? media.bestCover,
-            year: media.seasonYear?.toString(),
-            rating: media.averageScore == null
-                ? null
-                : media.averageScore! / 10,
-            overview: media.description,
-          ),
-      ],
+    return AnilistCinematicHero(
+      items: items,
       onTap: (index) => _open(items[index]),
       onLibraryPressed: () => context.push('/Library'),
       onSearchPressed: () => context.push('/globalSearch'),

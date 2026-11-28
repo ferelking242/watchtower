@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/more/settings/advanced/providers/ui_scale_provider.dart';
 import 'package:watchtower/ui/widgets/desktop_shortcuts.dart';
 
-GoRouter _router({String initial = '/WatchtowerHome'}) => GoRouter(
+GoRouter _router({String initial = '/AnimeLibrary'}) => GoRouter(
   initialLocation: initial,
   routes: [
     for (final r in DesktopShortcuts.sectionRoutes)
@@ -101,7 +101,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
     await tester.pumpAndSettle();
 
-    expect(router.state.uri.path, '/WatchtowerHome');
+    expect(router.state.uri.path, '/AnimeLibrary');
     debugDefaultTargetPlatformOverride = null;
   });
 

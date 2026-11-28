@@ -32,7 +32,6 @@ class DesktopShortcuts extends ConsumerWidget {
 
   /// Section routes reachable through the number keys, in order.
   static const List<String> sectionRoutes = [
-    '/WatchtowerHome',
     '/AnimeLibrary',
     '/MangaLibrary',
     '/NovelLibrary',
