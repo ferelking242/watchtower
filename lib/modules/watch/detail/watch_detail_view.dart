@@ -181,6 +181,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       _rebuildTabController(length: _challengeTabIndex + 1);
       _pendingChallenge = pending;
     }
+    // `Battre le challenge` reaches this page while it is on screen: the
+    // challenge must show up here, over the video it blocks, instead of the
+    // action pushing a different route (which looked like a dead button).
+    CloudflareChallengeBus.instance.inlineHandler = _claimChallengeInline;
+  }
+
+  /// Selects the inline challenge surface for [challenge].
+  ///
+  /// Returns false when the refusal belongs to another extension, so the
+  /// notification action falls back to its normal navigation.
+  bool _claimChallengeInline(CloudflareChallenge challenge) {
+    if (!mounted || !_challengeAppliesTo(challenge)) return false;
+    _rebuildTabController(length: _challengeTabIndex + 1);
+    setState(() {
+      _pendingChallenge = challenge;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _challengeTabVisible) _selectTab(_challengeTabIndex);
+    });
+    return true;
   }
 
   /// True when [challenge] concerns the extension behind this title. A refusal
@@ -255,6 +275,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     _playerToastTimer?.cancel();
     CloudflareChallengeBus.instance.challenge
         .removeListener(_onChallengeChanged);
+    // Only drop the handler if it is still ours: a newer detail page may have
+    // replaced it before this one is disposed (push/pop ordering is not
+    // guaranteed to be LIFO when the action opens a route on top).
+    if (CloudflareChallengeBus.instance.inlineHandler == _claimChallengeInline) {
+      CloudflareChallengeBus.instance.inlineHandler = null;
+    }
     _nestedScrollCtrl.removeListener(_onScroll);
     _nestedScrollCtrl.dispose();
     _headerTitleOpacity.dispose();
@@ -1871,45 +1897,59 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   fontWeight: FontWeight.w600),
             ),
             const Spacer(),
-            // "Fourni par <extension>" — the extension credit sits immediately
-            // before the options icon so the two read as one group on the right.
-            if (source != null) ...[
-              Text(
-                context.l10n.media_provided_by,
-                style: TextStyle(color: _grey, fontSize: 11),
-              ),
-              const SizedBox(width: 4),
-              if ((source.iconUrl ?? '').isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: cachedNetworkImage(
-                    imageUrl: source.iconUrl!,
-                    width: 16,
-                    height: 16,
-                    fit: BoxFit.cover,
-                  ),
+            // "Fourni par <extension>" — the credit sits immediately before the
+            // options icon so the two read as one group on the right. The group
+            // is allowed to shrink: with a long extension name it used to push
+            // the ⋯ past the right edge, where the Row clipped it and only the
+            // first two dots stayed visible.
+            if (source != null)
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        context.l10n.media_provided_by,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: _grey, fontSize: 11),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    if ((source.iconUrl ?? '').isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(5),
+                        child: cachedNetworkImage(
+                          imageUrl: source.iconUrl!,
+                          width: 16,
+                          height: 16,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        source.name?.trim().isNotEmpty == true
+                            ? source.name!.trim()
+                            : context.l10n.watch_home_extension,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _grey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              const SizedBox(width: 4),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 110),
-                child: Text(
-                  source.name?.trim().isNotEmpty == true
-                      ? source.name!.trim()
-                      : context.l10n.watch_home_extension,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
               ),
-              const SizedBox(width: 8),
-            ],
+            const SizedBox(width: 8),
             // Options button — opens the same bottom sheet as the season /
             // language / quality pills instead of an anchored popup menu, so
-            // every selector on the page behaves identically.
+            // every selector on the page behaves identically. Three-dot "more"
+            // glyph with no chip behind it: `more` is the horizontal ⋯, while
+            // `more_2` is the triangular layout that read as a share icon.
             GestureDetector(
               onTap: () => _showResourceMenuSheet(
                 context,
@@ -1917,10 +1957,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 source: source,
               ),
               behavior: HitTestBehavior.opaque,
-              // Three-dot "more" glyph, no chip behind it: the icon alone sits
-              // flush next to the "Fourni par <extension>" credit.
-              // `more` is the horizontal ⋯ ; `more_2` is a triangular layout
-              // that read as a share icon at this size.
               child: Icon(Broken.more, size: 22, color: _textPrimary),
             ),
           ],

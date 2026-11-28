@@ -44,6 +44,30 @@ class CloudflareChallengeBus {
     challenge.value = null;
   }
 
+  /// A screen that can show the challenge *in place* (the watch detail page,
+  /// whose player box hosts an inline panel).
+  ///
+  /// Registered while such a screen is mounted. `Battre le challenge` consults
+  /// it first: navigating away from the page the user is already on made the
+  /// action look dead — it pushed the extension home, which renders the same
+  /// listing the user had left. Selecting the inline panel is both cheaper and
+  /// what the user asked for by tapping a button attached to the blocked video.
+  bool Function(CloudflareChallenge challenge)? inlineHandler;
+
+  /// Returns true when an on-screen panel took the challenge.
+  bool tryShowInline(CloudflareChallenge challenge) {
+    final handler = inlineHandler;
+    if (handler == null) return false;
+    try {
+      return handler(challenge);
+    } catch (_) {
+      return false;
+    }
+  }
+
   @visibleForTesting
-  void reset() => challenge.value = null;
+  void reset() {
+    challenge.value = null;
+    inlineHandler = null;
+  }
 }

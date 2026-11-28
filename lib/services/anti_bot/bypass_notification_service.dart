@@ -226,6 +226,21 @@ class BypassNotificationService {
     // The extension home renders the inline bypass panel from the bus, so the
     // challenge is visible the moment the action lands there too.
     CloudflareChallengeBus.instance.publish(url, sourceId: sourceId);
+    // If a screen that hosts a panel is already showing — the watch detail
+    // page with its player box, typically — show the challenge there. Pushing a
+    // route on top of the page the user is looking at made this button appear
+    // to do nothing: it landed on the extension home, which renders the very
+    // listing they had just left.
+    final challenge = CloudflareChallenge(url: url, sourceId: sourceId);
+    if (CloudflareChallengeBus.instance.tryShowInline(challenge)) {
+      AppLogger.log(
+        'Challenge shown inline on the current screen  '
+        'host=${_hostFrom(url)}',
+        logLevel: LogLevel.info,
+        tag: LogTag.network,
+      );
+      return;
+    }
     try {
       if (source.itemType == ItemType.anime) {
         context.push('/watchExtensionHome', extra: source);

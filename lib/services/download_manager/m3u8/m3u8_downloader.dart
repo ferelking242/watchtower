@@ -103,11 +103,19 @@ class M3u8Downloader {
     final cookies = MClient.getCookiesPref(urlOverride ?? m3u8Url);
     if (cookies.isNotEmpty) {
       merged.addAll(cookies);
-      merged['User-Agent'] = _appUserAgent();
+      // Only fall back to the app UA when the extension did not name one: a
+      // CDN that fingerprints the client (Surrit) refuses a browser UA coming
+      // from a non-browser stack, and the extension's own UA is the one that
+      // was verified against it.
+      if (!_headersNameUserAgent) merged['User-Agent'] = _appUserAgent();
     }
 
     return merged;
   }
+
+  bool get _headersNameUserAgent => (headers ?? const {}).keys.any(
+        (key) => key.toLowerCase() == 'user-agent',
+      );
 
   String _appUserAgent() {
     return 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
